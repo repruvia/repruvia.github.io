@@ -9,6 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { JiraIcon, LinearIcon } from "@/components/atoms/BrandIcons";
 import { AI_MODELS, type AppSettings } from "@/lib/settings";
 
 interface SectionProps {
@@ -64,11 +65,16 @@ export function IntegrationsSection({ settings, update }: SectionProps) {
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-3">
-        <div>
-          <h3 className="font-medium">Linear</h3>
-          <p className="text-sm text-muted-foreground">
-            Personal API key from Linear → Settings → API.
-          </p>
+        <div className="flex items-start gap-3">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted">
+            <LinearIcon className="size-5" style={{ color: "#5E6AD2" }} />
+          </span>
+          <div>
+            <h3 className="font-medium">Linear</h3>
+            <p className="text-sm text-muted-foreground">
+              Personal API key from Linear → Settings → API.
+            </p>
+          </div>
         </div>
         <Field id="linear-token" label="API key">
           <Input
@@ -85,11 +91,16 @@ export function IntegrationsSection({ settings, update }: SectionProps) {
       <Separator className="-mx-6 w-auto!" />
 
       <div className="flex flex-col gap-3">
-        <div>
-          <h3 className="font-medium">Jira</h3>
-          <p className="text-sm text-muted-foreground">
-            Atlassian site, account email, and an API token.
-          </p>
+        <div className="flex items-start gap-3">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted">
+            <JiraIcon className="size-5" style={{ color: "#0052CC" }} />
+          </span>
+          <div>
+            <h3 className="font-medium">Jira</h3>
+            <p className="text-sm text-muted-foreground">
+              Atlassian site, account email, and an API token.
+            </p>
+          </div>
         </div>
         <Field id="jira-site" label="Site">
           <div className="flex items-center gap-2">

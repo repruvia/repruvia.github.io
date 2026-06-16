@@ -17,7 +17,12 @@ export function AppHeader() {
         </Link>
         <div className="flex items-center gap-1">
           <Button asChild variant="outline" size="sm">
-            <a href={GITHUB_URL} target="_blank" rel="noreferrer" aria-label="Star Repruvia on GitHub">
+            <a
+              href={GITHUB_URL}
+              target="_blank"
+              rel="noreferrer"
+              aria-label="Star Repruvia on GitHub"
+            >
               <Github />
               <span className="hidden sm:inline">Star</span>
               {stars !== null && (
@@ -31,7 +36,7 @@ export function AppHeader() {
           <ThemeToggle />
           <Button asChild variant="ghost" size="sm">
             <Link to="/settings">
-              <Settings /> <span className="hidden sm:inline">Settings</span>
+              <Settings />
             </Link>
           </Button>
         </div>
