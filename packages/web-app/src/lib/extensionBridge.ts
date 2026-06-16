@@ -8,6 +8,14 @@ import type {
 /** Optional explicit override; normally the ID is auto-discovered. */
 const ENV_EXTENSION_ID = import.meta.env.VITE_EXTENSION_ID ?? "";
 
+/**
+ * The published Chrome Web Store extension ID. Used as a reliable fallback so
+ * the deployed web app can message the production extension directly even before
+ * its content script announces itself. (Dev unpacked builds get a different ID,
+ * which the content-script DOM announcement provides and takes precedence.)
+ */
+const PUBLISHED_EXTENSION_ID = "ggjjdcmbiifemkldlbeplfljlpehepdl";
+
 /** How long to wait for the extension's self-announcement before giving up. */
 const DISCOVERY_TIMEOUT_MS = 2000;
 
@@ -45,7 +53,9 @@ let discovery: Promise<string> | null = null;
 /**
  * Resolve the extension id without manual configuration. Precedence:
  * explicit env override → DOM attribute (set synchronously by the extension's
- * web-app content script) → a postMessage handshake for late-loading pages.
+ * web-app content script, e.g. a dev unpacked build) → the published Web Store
+ * ID → a postMessage handshake for late-loading pages. Whether the extension is
+ * actually installed is determined by whether messaging that id succeeds.
  */
 function resolveExtensionId(): Promise<string> {
   if (ENV_EXTENSION_ID) return Promise.resolve(ENV_EXTENSION_ID);
@@ -58,7 +68,7 @@ function resolveExtensionId(): Promise<string> {
   }
 
   if (discovery) return discovery;
-  discovery = new Promise<string>((resolve, reject) => {
+  discovery = new Promise<string>((resolve) => {
     const onMessage = (event: MessageEvent) => {
       if (
         event.source === window &&
@@ -75,13 +85,9 @@ function resolveExtensionId(): Promise<string> {
     const timer = setTimeout(() => {
       window.removeEventListener("message", onMessage);
       discovery = null;
-      const late = readIdFromDom();
-      if (late) {
-        cachedId = late;
-        resolve(late);
-      } else {
-        reject(new ExtensionUnavailableError());
-      }
+      // Fall back to the published ID; if the extension isn't installed, the
+      // actual sendMessage will fail and surface as unavailable.
+      resolve(readIdFromDom() ?? PUBLISHED_EXTENSION_ID);
     }, DISCOVERY_TIMEOUT_MS);
 
     window.addEventListener("message", onMessage);
@@ -90,9 +96,9 @@ function resolveExtensionId(): Promise<string> {
   return discovery;
 }
 
-/** True when the page can in principle talk to the extension. */
+/** True when the page can in principle talk to an extension (install confirmed by messaging). */
 export function isExtensionAvailable(): boolean {
-  return Boolean(getRuntime()) && (Boolean(ENV_EXTENSION_ID) || readIdFromDom() !== null);
+  return Boolean(getRuntime());
 }
 
 async function request(message: ExternalRequest): Promise<ExternalResponse> {
