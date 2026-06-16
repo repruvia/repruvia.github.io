@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { AppHeader } from "@/components/organisms/AppHeader";
+import { AppFooter } from "@/components/organisms/AppFooter";
 import { Toaster } from "@/components/ui/sonner";
 import { StateScreen } from "@/components/molecules/StateScreen";
 import { ThemeProvider } from "@/lib/theme";
@@ -29,14 +30,15 @@ export function App() {
   return (
     <ThemeProvider>
       <BrowserRouter basename={import.meta.env.BASE_URL}>
-        <div className="min-h-screen">
+        <div className="flex min-h-screen flex-col">
           <AppHeader />
-          <main>
+          <main className="flex-1">
             <Routes>
               <Route path="/" element={<RootRoute />} />
               <Route path="/settings" element={<SettingsPage />} />
             </Routes>
           </main>
+          <AppFooter />
         </div>
         <Toaster />
       </BrowserRouter>

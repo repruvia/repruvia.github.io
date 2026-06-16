@@ -64,6 +64,8 @@ React 19 · Vite 6 · Tailwind CSS v4 · shadcn/ui · Zustand · React Router v7
 
 Input **values are never captured** — only field labels/placeholders. Session data lives in your browser's IndexedDB and is sent nowhere until you explicitly submit a ticket. See [`packages/extension`](./packages/extension) and the [TRD](./Repruvia-TRD.md) §12.
 
+📄 **[Privacy Policy](https://ash-larch-a05.notion.site/Repruvia-Privacy-Policy-381a0161464a80168f99c885addf346e)**
+
 ## License
 
 [MIT](./LICENSE) © Repruvia Contributors

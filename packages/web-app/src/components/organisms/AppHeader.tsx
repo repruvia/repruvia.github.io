@@ -3,8 +3,7 @@ import { Github, Settings, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageContainer } from "@/components/atoms/PageContainer";
 import { ThemeToggle } from "@/components/molecules/ThemeToggle";
-
-const GITHUB_URL = "https://github.com/leoAnimesh/repruvia";
+import { GITHUB_URL } from "@/lib/links";
 
 export function AppHeader() {
   return (
