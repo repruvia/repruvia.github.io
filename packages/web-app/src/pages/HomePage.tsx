@@ -11,6 +11,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { PageContainer } from "@/components/atoms/PageContainer";
 import { RecordingsLibrary } from "@/components/organisms/RecordingsLibrary";
 import { useRecordings } from "@/hooks/useRecordings";
+import { CHROME_WEBSTORE_URL } from "@/lib/links";
 
 const FEATURES = [
   {
@@ -65,7 +66,7 @@ export function HomePage() {
         {!installed && status !== "checking" && (
           <div className="flex flex-wrap items-center gap-3 pt-1">
             <a
-              href="https://chrome.google.com/webstore"
+              href={CHROME_WEBSTORE_URL}
               target="_blank"
               rel="noreferrer"
               className="inline-flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground transition-transform hover:-translate-y-0.5"
