@@ -29,11 +29,6 @@ jobs:
           node-version: 20
           cache: pnpm
 
-      - name: Enable / configure Pages
-        uses: actions/configure-pages@v5
-        with:
-          enablement: true
-
       - run: pnpm install --frozen-lockfile
 
       - run: pnpm build:shared
