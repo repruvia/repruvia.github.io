@@ -104,10 +104,11 @@ export function HomePage() {
 
       {!installed && status !== "checking" && (
         <section className="grid auto-rows-fr gap-3 md:grid-cols-3">
-          {FEATURES.map(({ icon: Icon, title, body, span }) => (
+          {FEATURES.map(({ icon: Icon, title, body, span }, i) => (
             <Card
               key={title}
-              className={`${span} transition-colors hover:border-primary/40`}
+              style={{ animationDelay: `${150 + i * 90}ms`, animationFillMode: "backwards" }}
+              className={`${span} animate-in fade-in slide-in-from-bottom-3 duration-700 transition-colors hover:border-primary/40`}
             >
               <CardContent className="flex h-full flex-col gap-3">
                 <span className="flex size-9 items-center justify-center rounded-md bg-primary/10 text-primary">
