@@ -1,0 +1,27 @@
+{
+  "name": "@repruvia/shared",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Framework-agnostic domain types and pure business logic for Repruvia.",
+  "license": "MIT",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src --config ../../eslint.config.js --max-warnings 0",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.8"
+  }
+}

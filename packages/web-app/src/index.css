@@ -1,0 +1,156 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@plugin "@tailwindcss/typography";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Committed aesthetic: a "technical terminal" theme tied to the green bug
+ * mascot. Deep slate (never pure black), one confident lime-green accent
+ * (no AI-purple), distinctive type, and a faint grid + glow for atmosphere.
+ */
+
+:root {
+  --radius: 0.5rem;
+
+  --background: oklch(0.985 0.004 250);
+  --foreground: oklch(0.2 0.02 255);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.2 0.02 255);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.2 0.02 255);
+  --primary: oklch(0.62 0.16 142);
+  --primary-foreground: oklch(0.98 0.02 140);
+  --secondary: oklch(0.96 0.01 250);
+  --secondary-foreground: oklch(0.25 0.02 255);
+  --muted: oklch(0.96 0.01 250);
+  --muted-foreground: oklch(0.52 0.02 255);
+  --accent: oklch(0.95 0.03 142);
+  --accent-foreground: oklch(0.25 0.04 145);
+  --destructive: oklch(0.58 0.22 25);
+  --destructive-foreground: oklch(0.98 0.01 250);
+  --border: oklch(0.9 0.01 255);
+  --input: oklch(0.9 0.01 255);
+  --ring: oklch(0.62 0.16 142);
+}
+
+.dark {
+  --background: oklch(0.18 0.014 255);
+  --foreground: oklch(0.95 0.006 250);
+  --card: oklch(0.215 0.016 255);
+  --card-foreground: oklch(0.95 0.006 250);
+  --popover: oklch(0.215 0.016 255);
+  --popover-foreground: oklch(0.95 0.006 250);
+  /* Lime-green accent — the brand color, used sparingly and sharply. */
+  --primary: oklch(0.82 0.19 130);
+  --primary-foreground: oklch(0.24 0.06 145);
+  --secondary: oklch(0.27 0.018 255);
+  --secondary-foreground: oklch(0.95 0.006 250);
+  --muted: oklch(0.27 0.018 255);
+  --muted-foreground: oklch(0.7 0.018 255);
+  --accent: oklch(0.3 0.04 140);
+  --accent-foreground: oklch(0.95 0.02 140);
+  --destructive: oklch(0.66 0.2 22);
+  --destructive-foreground: oklch(0.98 0.01 250);
+  --border: oklch(1 0 0 / 9%);
+  --input: oklch(1 0 0 / 13%);
+  --ring: oklch(0.82 0.19 130);
+}
+
+@theme inline {
+  --font-sans: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", monospace;
+  --font-display: "Space Grotesk", "Plus Jakarta Sans", system-ui, sans-serif;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+    outline-color: var(--color-ring);
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Atmosphere: a soft top glow + a faint dotted grid. Subtle, not neon. */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background-image:
+      radial-gradient(
+        55% 40% at 50% -5%,
+        color-mix(in oklab, var(--color-primary) 12%, transparent),
+        transparent 70%
+      ),
+      radial-gradient(
+        circle at 1px 1px,
+        color-mix(in oklab, var(--color-foreground) 7%, transparent) 1px,
+        transparent 0
+      );
+    background-size:
+      100% 100%,
+      40px 40px;
+  }
+
+  #root {
+    position: relative;
+    z-index: 1;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    letter-spacing: -0.015em;
+  }
+
+  /* TipTap (Slack-style editor) */
+  .ProseMirror {
+    outline: none;
+  }
+  .ProseMirror p.is-editor-empty:first-child::before {
+    content: attr(data-placeholder);
+    color: var(--color-muted-foreground);
+    float: left;
+    height: 0;
+    pointer-events: none;
+  }
+  .ProseMirror :first-child {
+    margin-top: 0;
+  }
+  .ProseMirror :last-child {
+    margin-bottom: 0;
+  }
+}

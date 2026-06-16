@@ -1,0 +1,23 @@
+{
+  "name": "@repruvia/extension",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Repruvia Chrome MV3 capture engine.",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite build --watch --mode development",
+    "build": "tsc --noEmit && vite build",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --config ../../eslint.config.js --max-warnings 0"
+  },
+  "dependencies": {
+    "@repruvia/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@crxjs/vite-plugin": "^2.6.1",
+    "@types/chrome": "^0.0.299",
+    "typescript": "^5.7.3",
+    "vite": "^6.0.7"
+  }
+}

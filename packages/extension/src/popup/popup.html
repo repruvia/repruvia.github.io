@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Repruvia</title>
+    <link rel="stylesheet" href="./popup.css" />
+  </head>
+  <body>
+    <main class="popup">
+      <header class="popup__header">
+        <img class="popup__logo" src="../assets/icon-48.png" alt="" />
+        <h1 class="popup__title">Repruvia</h1>
+      </header>
+
+      <p id="status" class="popup__status" data-state="idle">Ready to record</p>
+
+      <div class="popup__stats" id="stats" hidden>
+        <span id="step-count" class="popup__count">0</span>
+        <span class="popup__count-label">steps captured</span>
+      </div>
+
+      <button id="toggle" class="popup__button popup__button--start" type="button">
+        Start Recording
+      </button>
+
+      <footer class="popup__footer">
+        Captured locally · never uploaded until you submit
+      </footer>
+    </main>
+    <script type="module" src="./popup.ts"></script>
+  </body>
+</html>

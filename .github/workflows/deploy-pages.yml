@@ -1,0 +1,63 @@
+name: Deploy web app to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Allow the deploy job to publish to Pages via OIDC.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time; cancel superseded runs.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Enable / configure Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm build:shared
+
+      - name: Build web app (under the repo subpath)
+        run: pnpm --filter @repruvia/web-app build
+        env:
+          VITE_BASE: /repruvia/
+
+      - name: SPA fallback (deep links / refresh)
+        run: cp packages/web-app/dist/index.html packages/web-app/dist/404.html
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: packages/web-app/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

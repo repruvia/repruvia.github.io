@@ -1,0 +1,36 @@
+{
+  "name": "repruvia",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Open-source Chrome extension + web app that turns a recording session into a structured, ready-to-submit bug report.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  },
+  "packageManager": "pnpm@10.32.1",
+  "scripts": {
+    "dev:web": "pnpm --filter @repruvia/web-app dev",
+    "dev:extension": "pnpm --filter @repruvia/extension dev",
+    "build": "pnpm -r build",
+    "build:shared": "pnpm --filter @repruvia/shared build",
+    "build:web": "pnpm --filter @repruvia/web-app build",
+    "build:extension": "pnpm --filter @repruvia/extension build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint",
+    "format": "prettier --write \"**/*.{ts,tsx,css,json,md}\"",
+    "assets:icons": "node scripts/generate-icons.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.18.0",
+    "@types/node": "^22.10.5",
+    "eslint": "^9.18.0",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "globals": "^15.14.0",
+    "prettier": "^3.4.2",
+    "sharp": "^0.35.1",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.20.0"
+  }
+}
