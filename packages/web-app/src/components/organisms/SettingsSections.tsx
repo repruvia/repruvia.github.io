@@ -11,10 +11,28 @@ import {
 } from "@/components/ui/select";
 import { JiraIcon, LinearIcon } from "@/components/atoms/BrandIcons";
 import { AI_MODELS, type AppSettings } from "@/lib/settings";
+import { cn } from "@/lib/utils";
 
 interface SectionProps {
   settings: AppSettings;
   update: <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => void;
+}
+
+/** Live "Connected / Not connected" marker driven by whether creds are filled. */
+function ConnectionStatus({ connected }: { connected: boolean }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs",
+        connected ? "border-primary/30 text-primary" : "text-muted-foreground",
+      )}
+    >
+      <span
+        className={cn("size-1.5 rounded-full", connected ? "bg-primary" : "bg-muted-foreground/40")}
+      />
+      {connected ? "Connected" : "Not connected"}
+    </span>
+  );
 }
 
 function Field({
@@ -62,19 +80,27 @@ export function ProfileSection({ settings, update }: SectionProps) {
 }
 
 export function IntegrationsSection({ settings, update }: SectionProps) {
+  const linearConnected = settings.linearToken.trim().length > 0;
+  const jiraConnected = Boolean(
+    settings.jiraSite.trim() && settings.jiraEmail.trim() && settings.jiraToken.trim(),
+  );
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-3">
-        <div className="flex items-start gap-3">
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted">
-            <LinearIcon className="size-5" style={{ color: "#5E6AD2" }} />
-          </span>
-          <div>
-            <h3 className="font-medium">Linear</h3>
-            <p className="text-sm text-muted-foreground">
-              Personal API key from Linear → Settings → API.
-            </p>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted">
+              <LinearIcon className="size-5" style={{ color: "#5E6AD2" }} />
+            </span>
+            <div>
+              <h3 className="font-medium">Linear</h3>
+              <p className="text-sm text-muted-foreground">
+                Personal API key from Linear → Settings → API.
+              </p>
+            </div>
           </div>
+          <ConnectionStatus connected={linearConnected} />
         </div>
         <Field id="linear-token" label="API key">
           <Input
@@ -91,16 +117,19 @@ export function IntegrationsSection({ settings, update }: SectionProps) {
       <Separator className="-mx-6 w-auto!" />
 
       <div className="flex flex-col gap-3">
-        <div className="flex items-start gap-3">
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted">
-            <JiraIcon className="size-5" style={{ color: "#0052CC" }} />
-          </span>
-          <div>
-            <h3 className="font-medium">Jira</h3>
-            <p className="text-sm text-muted-foreground">
-              Atlassian site, account email, and an API token.
-            </p>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted">
+              <JiraIcon className="size-5" style={{ color: "#0052CC" }} />
+            </span>
+            <div>
+              <h3 className="font-medium">Jira</h3>
+              <p className="text-sm text-muted-foreground">
+                Atlassian site, account email, and an API token.
+              </p>
+            </div>
           </div>
+          <ConnectionStatus connected={jiraConnected} />
         </div>
         <Field id="jira-site" label="Site">
           <div className="flex items-center gap-2">
