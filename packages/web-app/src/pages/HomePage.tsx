@@ -46,10 +46,9 @@ export function HomePage() {
   return (
     <PageContainer className="flex flex-col gap-12 py-12 sm:py-16">
       <section className="flex animate-in flex-col items-start gap-5 fade-in slide-in-from-bottom-3 duration-700">
-        <img src={`${import.meta.env.BASE_URL}icon-512.png`} alt="Repruvia" className="size-20" />
         <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 font-mono text-xs text-primary">
           <span className="size-1.5 rounded-full bg-primary" />
-          open source · chrome mv3 · no backend
+          Capture · Reproduce · Report
         </span>
 
         <h1 className="max-w-3xl text-5xl font-bold leading-[1.05] tracking-tight sm:text-6xl">
@@ -74,7 +73,7 @@ export function HomePage() {
               <Chrome className="size-4" /> Install the extension
             </a>
             <a
-              href="https://github.com/[org]/repruvia"
+              href="https://github.com/leoAnimesh/repruvia"
               target="_blank"
               rel="noreferrer"
               className="inline-flex items-center gap-2 rounded-md border px-5 py-2.5 text-sm font-medium hover:bg-accent"

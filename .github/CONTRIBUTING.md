@@ -5,7 +5,7 @@ Thanks for your interest in contributing! Repruvia is MIT-licensed and community
 ## Development Setup
 
 ```bash
-git clone https://github.com/[org]/repruvia
+git clone https://github.com/leoAnimesh/repruvia
 cd repruvia
 pnpm install
 
@@ -38,4 +38,4 @@ This is a pnpm monorepo with three packages:
 
 ## Good First Issues
 
-Look for issues tagged [`good first issue`](https://github.com/[org]/repruvia/labels/good%20first%20issue).
+Look for issues tagged [`good first issue`](https://github.com/leoAnimesh/repruvia/labels/good%20first%20issue).

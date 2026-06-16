@@ -1,8 +1,10 @@
 import { Link } from "react-router-dom";
-import { Settings } from "lucide-react";
+import { Github, Settings, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageContainer } from "@/components/atoms/PageContainer";
 import { ThemeToggle } from "@/components/molecules/ThemeToggle";
+
+const GITHUB_URL = "https://github.com/leoAnimesh/repruvia";
 
 export function AppHeader() {
   return (
@@ -13,10 +15,17 @@ export function AppHeader() {
           <span className="font-display text-lg font-bold tracking-tight">Repruvia</span>
         </Link>
         <div className="flex items-center gap-1">
+          <Button asChild variant="outline" size="sm">
+            <a href={GITHUB_URL} target="_blank" rel="noreferrer" aria-label="Star Repruvia on GitHub">
+              <Github />
+              <span className="hidden sm:inline">Star</span>
+              <Star className="hidden sm:inline" />
+            </a>
+          </Button>
           <ThemeToggle />
           <Button asChild variant="ghost" size="sm">
             <Link to="/settings">
-              <Settings /> Settings
+              <Settings /> <span className="hidden sm:inline">Settings</span>
             </Link>
           </Button>
         </div>
