@@ -3,7 +3,7 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { AppHeader } from "@/components/organisms/AppHeader";
 import { AppFooter } from "@/components/organisms/AppFooter";
 import { Toaster } from "@/components/ui/sonner";
-import { StateScreen } from "@/components/molecules/StateScreen";
+import { ReportBuilderSkeleton } from "@/components/molecules/ReportBuilderSkeleton";
 import { ThemeProvider } from "@/lib/theme";
 import { HomePage } from "@/pages/HomePage";
 import { SettingsPage } from "@/pages/SettingsPage";
@@ -20,7 +20,7 @@ const ReportBuilderPage = lazy(() =>
 function RootRoute() {
   if (!useSessionId()) return <HomePage />;
   return (
-    <Suspense fallback={<StateScreen loading title="Loading report…" />}>
+    <Suspense fallback={<ReportBuilderSkeleton />}>
       <ReportBuilderPage />
     </Suspense>
   );

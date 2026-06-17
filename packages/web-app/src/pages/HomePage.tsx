@@ -1,7 +1,6 @@
 import {
   Chrome,
   Github,
-  Loader2,
   MousePointerClick,
   ShieldCheck,
   Sparkles,
@@ -10,6 +9,7 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { PageContainer } from "@/components/atoms/PageContainer";
 import { RecordingsLibrary } from "@/components/organisms/RecordingsLibrary";
+import { RecordingsSkeleton } from "@/components/molecules/RecordingsSkeleton";
 import { useRecordings } from "@/hooks/useRecordings";
 import { CHROME_WEBSTORE_URL } from "@/lib/links";
 
@@ -85,11 +85,7 @@ export function HomePage() {
         )}
       </section>
 
-      {status === "checking" && (
-        <div className="flex justify-center">
-          <Loader2 className="size-6 animate-spin text-muted-foreground" />
-        </div>
-      )}
+      {status === "checking" && <RecordingsSkeleton />}
 
       {installed && (
         <div className="animate-in fade-in slide-in-from-bottom-3 duration-700">
