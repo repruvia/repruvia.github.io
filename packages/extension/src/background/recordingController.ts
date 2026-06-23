@@ -8,8 +8,14 @@ import { captureEnvironment } from "./recording/environment.js";
 import { ChromeScreenshotCapturer } from "./recording/screenshotCapturer.js";
 import { SessionRecorder } from "./recording/sessionRecorder.js";
 
-/** Where to open the report builder. Overridable via build-time env. */
-const WEB_APP_URL = import.meta.env.VITE_WEB_APP_URL ?? "http://localhost:3000";
+/**
+ * Where to open the report builder. An explicit `VITE_WEB_APP_URL` always wins;
+ * otherwise dev builds target the local web app and production builds (what ships
+ * to the Chrome Web Store) target the live GitHub Pages site.
+ */
+const WEB_APP_URL =
+  import.meta.env.VITE_WEB_APP_URL ??
+  (import.meta.env.DEV ? "http://localhost:3000" : "https://repruvia.github.io");
 
 /**
  * Top-level coordinator (TRD §2.3). Owns the recording lifecycle and is the
