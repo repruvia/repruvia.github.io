@@ -1,7 +1,32 @@
-/** Minimal chat message shape (OpenAI-compatible, which WebLLM mirrors). */
+/** A part of a multimodal message. */
+export type ContentPart =
+  | { type: "text"; text: string }
+  | { type: "image"; dataUrl: string };
+
+/** Minimal chat message shape (OpenAI-compatible). Content may be multimodal. */
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
-  content: string;
+  content: string | ContentPart[];
+}
+
+/** Flatten a message's content to plain text (drops images). */
+export function textOf(content: string | ContentPart[]): string {
+  if (typeof content === "string") return content;
+  return content
+    .filter((p): p is Extract<ContentPart, { type: "text" }> => p.type === "text")
+    .map((p) => p.text)
+    .join("\n");
+}
+
+/** Normalize content to an array of parts. */
+export function partsOf(content: string | ContentPart[]): ContentPart[] {
+  return typeof content === "string" ? [{ type: "text", text: content }] : content;
+}
+
+/** Split a data URL into its media type and raw base64 payload. */
+export function dataUrlToBase64(dataUrl: string): { mediaType: string; base64: string } {
+  const match = /^data:(.*?);base64,(.*)$/.exec(dataUrl);
+  return { mediaType: match?.[1] || "image/png", base64: match?.[2] ?? "" };
 }
 
 /** Model-download / initialization progress. */

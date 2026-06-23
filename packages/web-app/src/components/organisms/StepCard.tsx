@@ -55,6 +55,7 @@ export function StepCard({
                 <AiRefineButton
                   field="step"
                   text={resolveStepText(step)}
+                  screenshot={step.screenshot}
                   onResult={onEdit}
                   label={`Refine step ${step.index} with AI`}
                   className="size-9"

@@ -10,6 +10,8 @@ interface AiRefineButtonProps {
   field: RefineField;
   /** Current text to refine. */
   text: string;
+  /** Optional screenshot (data URL) sent with a step refine to vision providers. */
+  screenshot?: string | null;
   /** Apply the refined text. */
   onResult: (next: string) => void;
   label?: string;
@@ -21,7 +23,7 @@ interface AiRefineButtonProps {
  * AI is unavailable; shows a spinner while the model runs. The actual model
  * loading/inference lives in the `AiRefineProvider`.
  */
-export function AiRefineButton({ field, text, onResult, label, className }: AiRefineButtonProps) {
+export function AiRefineButton({ field, text, screenshot, onResult, label, className }: AiRefineButtonProps) {
   const { available, refine } = useAiRefine();
   const [pending, setPending] = useState(false);
 
@@ -40,7 +42,7 @@ export function AiRefineButton({ field, text, onResult, label, className }: AiRe
       onClick={async () => {
         setPending(true);
         try {
-          onResult(await refine(field, text));
+          onResult(await refine(field, text, screenshot));
         } catch (error) {
           toast.error((error as Error).message);
         } finally {

@@ -1,5 +1,5 @@
 import { resolveStepText, SEVERITIES, type Report, type Severity } from "@repruvia/shared";
-import type { ChatMessage } from "./types";
+import type { ChatMessage, ContentPart } from "./types";
 
 /** Structured result the model is asked to produce in one shot. */
 export interface AnalysisResult {
@@ -122,10 +122,11 @@ export function buildFieldRefineMessages(
   field: RefineField,
   current: string,
   report: Report,
+  screenshot?: string | null,
 ): ChatMessage[] {
-  const user =
+  const userText =
     field === "step"
-      ? `Rewrite this step line:\n${current || "(empty)"}`
+      ? `Rewrite this step line${screenshot ? " (a screenshot of the step is attached)" : ""}:\n${current || "(empty)"}`
       : [
           `Current ${field}:`,
           current || "(empty)",
@@ -133,9 +134,18 @@ export function buildFieldRefineMessages(
           "Session context for grounding:",
           sessionContext(report),
         ].join("\n");
+
+  const userContent: string | ContentPart[] =
+    field === "step" && screenshot
+      ? [
+          { type: "text", text: userText },
+          { type: "image", dataUrl: screenshot },
+        ]
+      : userText;
+
   return [
     { role: "system", content: REFINE_SYSTEM[field] },
-    { role: "user", content: user },
+    { role: "user", content: userContent },
   ];
 }
 

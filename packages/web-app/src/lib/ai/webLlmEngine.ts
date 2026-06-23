@@ -1,6 +1,31 @@
-import type { InitProgressReport, MLCEngineInterface } from "@mlc-ai/web-llm";
+import type {
+  ChatCompletionMessageParam,
+  InitProgressReport,
+  MLCEngineInterface,
+} from "@mlc-ai/web-llm";
 import { loadSettings } from "@/lib/settings";
+import { partsOf, textOf } from "./types";
 import type { ChatMessage, GenerateOptions, LlmEngine, LlmProgress } from "./types";
+
+/** WebLLM mirrors the OpenAI message shape; VLMs accept image_url, text models need strings. */
+function toWebLlmMessages(messages: ChatMessage[], allowImages: boolean): ChatCompletionMessageParam[] {
+  return messages.map((m) => {
+    if (typeof m.content === "string") return { role: m.role, content: m.content };
+    if (!allowImages) return { role: m.role, content: textOf(m.content) };
+    return {
+      role: m.role,
+      content: partsOf(m.content).map((p) =>
+        p.type === "text"
+          ? { type: "text", text: p.text }
+          : { type: "image_url", image_url: { url: p.dataUrl } },
+      ),
+    };
+  }) as ChatCompletionMessageParam[];
+}
+
+function isVisionModel(model: string): boolean {
+  return /vision/i.test(model);
+}
 
 /**
  * The primary model comes from the user's AI settings (default: a small ~0.9 GB
@@ -8,7 +33,7 @@ import type { ChatMessage, GenerateOptions, LlmEngine, LlmProgress } from "./typ
  * shader-f16 so the feature still works.
  */
 function primaryModel(): string {
-  return loadSettings().aiModel || "Llama-3.2-1B-Instruct-q4f16_1-MLC";
+  return loadSettings().ai.providers.webllm.model || "Llama-3.2-1B-Instruct-q4f16_1-MLC";
 }
 const FALLBACK_MODEL = "Llama-3.2-1B-Instruct-q4f32_1-MLC";
 
@@ -48,9 +73,10 @@ class WebLlmEngine implements LlmEngine {
     // parses reliably even on a 1B model). Passing JSON mode WITHOUT a schema
     // throws a BindingError in the worker and hangs the call, so we only set
     // `response_format` when a (stringified) schema is provided.
+    const wlMessages = toWebLlmMessages(messages, isVisionModel(primaryModel()));
     if (options.json) {
       const result = await engine.chat.completions.create({
-        messages,
+        messages: wlMessages,
         temperature: 0.2,
         stream: false,
         ...(options.schema
@@ -61,7 +87,7 @@ class WebLlmEngine implements LlmEngine {
     }
 
     const stream = await engine.chat.completions.create({
-      messages,
+      messages: wlMessages,
       temperature: 0.4,
       stream: true,
     });
