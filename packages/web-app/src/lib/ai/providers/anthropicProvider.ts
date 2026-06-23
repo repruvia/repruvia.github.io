@@ -38,7 +38,7 @@ export class AnthropicEngine implements LlmEngine {
         "anthropic-version": "2023-06-01",
         "anthropic-dangerous-direct-browser-access": "true",
       },
-      { model: this.config.model, max_tokens: 1024, system, messages: turns },
+      { model: this.config.model, max_tokens: 1024, system: system || undefined, messages: turns },
     )) as { content?: { type: string; text?: string }[] };
     return (data.content?.find((c) => c.type === "text")?.text ?? "").trim();
   }

@@ -33,8 +33,10 @@ export class GeminiEngine implements LlmEngine {
         parts: toGeminiParts(m.content),
       }));
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.config.model}:generateContent?key=${encodeURIComponent(this.config.apiKey)}`;
-    const data = (await proxyJson(url, {}, {
+    // Key goes in a header (not the URL query) so it doesn't leak via the proxy
+    // message/logs. Model name is path-encoded to prevent path-segment tricks.
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(this.config.model)}:generateContent`;
+    const data = (await proxyJson(url, { "x-goog-api-key": this.config.apiKey }, {
       systemInstruction: system ? { parts: [{ text: system }] } : undefined,
       contents,
     })) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };

@@ -41,7 +41,7 @@ export const PROXY_FETCH_ALLOWED_HOST_SUFFIXES = [
   "atlassian.net", // <site>.atlassian.net (Jira)
   "openai.com", // OpenAI API
   "anthropic.com", // Anthropic API
-  "googleapis.com", // Google Gemini (generativelanguage.googleapis.com)
+  "generativelanguage.googleapis.com", // Google Gemini (only this host, not all of googleapis.com)
   "x.ai", // xAI Grok (api.x.ai)
 ] as const;
 

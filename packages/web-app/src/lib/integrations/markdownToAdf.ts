@@ -41,7 +41,9 @@ export function markdownToAdf(markdown: string, resolveMedia?: MediaResolver): A
               attrs: {
                 type: "file",
                 id: media.id,
-                ...(media.collection ? { collection: media.collection } : {}),
+                // Include `collection` whenever provided (empty string is valid
+                // and required for issue-attached files).
+                ...(media.collection !== undefined ? { collection: media.collection } : {}),
               },
             },
           ],

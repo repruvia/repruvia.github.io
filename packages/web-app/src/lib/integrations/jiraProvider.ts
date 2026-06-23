@@ -91,7 +91,10 @@ export class JiraProvider implements TicketProvider {
         });
         const description = markdownToAdf(body, (path) => {
           const id = idByName.get(path);
-          return id ? { id } : null;
+          // Jira ADF media for an issue attachment needs `collection` present
+          // (empty string for issue-attached files); without it the node is
+          // invalid and the image won't render inline.
+          return id ? { id, collection: "" } : null;
         });
         await this.api("PUT", `/rest/api/3/issue/${created.id}`, { fields: { description } });
       } catch {
