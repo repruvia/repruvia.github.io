@@ -55,19 +55,21 @@ export function useTicketSubmission(report: Report | null) {
   );
 
   const submit = useCallback(
-    async (providerId: ProviderId, containerId: string) => {
+    async (providerId: ProviderId, containerId: string, includeImages = true) => {
       if (!report) return;
       const provider = providers[providerId];
       setState((s) => ({ ...s, phase: "submitting", progress: 0, error: null }));
       try {
+        const reportedBy = loadSettings().reporterName || undefined;
         const markdownBody = exportReportToMarkdown(report, {
           screenshots: "omit", // screenshots ride along as real attachments
-          reportedBy: loadSettings().reporterName || undefined,
+          reportedBy,
         });
         const result = await provider.submit({
           report,
           markdownBody,
-          attachments: buildAttachments(report.session),
+          reportedBy,
+          attachments: includeImages ? buildAttachments(report.session) : [],
           target: { containerId },
           onProgress: (progress) => setState((s) => ({ ...s, progress })),
         });

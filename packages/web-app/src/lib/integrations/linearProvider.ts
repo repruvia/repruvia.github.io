@@ -1,4 +1,5 @@
 import {
+  exportReportToMarkdown,
   severityToLinearPriority,
   TicketProviderError,
   type ProviderContainer,
@@ -6,6 +7,8 @@ import {
   type SubmissionResult,
   type TicketProvider,
 } from "@repruvia/shared";
+import { screenshotAttachmentName } from "@/lib/reportAttachments";
+import { extensionBridge } from "@/lib/extensionBridge";
 
 const LINEAR_API = "https://api.linear.app/graphql";
 
@@ -43,7 +46,39 @@ export class LinearProvider implements TicketProvider {
   }
 
   async submit(context: SubmissionContext): Promise<SubmissionResult> {
-    const { report, markdownBody, target, attachments, onProgress } = context;
+    const { report, markdownBody, reportedBy, target, attachments, onProgress } = context;
+
+    // Upload screenshots first so they can be embedded inline in the description
+    // (Linear renders uploaded asset URLs as images; a bare attachment does not).
+    // Best-effort: a failed upload just drops that one image, not the issue.
+    const assetByName = new Map<string, string>();
+    let uploaded = 0;
+    for (const attachment of attachments) {
+      try {
+        assetByName.set(attachment.filename, await this.uploadFile(attachment));
+      } catch (err) {
+        // Best-effort: skip this image, but surface why so a systematic upload
+        // failure (CORS, bad signed URL, etc.) is diagnosable instead of silent.
+        console.error(`[repruvia] Linear screenshot upload failed for ${attachment.filename}:`, err);
+      }
+      uploaded += 1;
+      onProgress?.(uploaded / (attachments.length + 1));
+    }
+    if (attachments.length > 0 && assetByName.size === 0) {
+      console.warn(
+        "[repruvia] No screenshots uploaded to Linear — the issue will have no inline images. See the error(s) above.",
+      );
+    }
+
+    // Re-render the body with the uploaded URLs inline. Fall back to the
+    // pre-rendered (image-less) body when nothing uploaded.
+    const description = assetByName.size
+      ? exportReportToMarkdown(report, {
+          screenshots: "link",
+          screenshotPath: (step) => assetByName.get(screenshotAttachmentName(step.index)) ?? "",
+          reportedBy,
+        })
+      : markdownBody;
 
     const created = await this.query<{
       issueCreate: { success: boolean; issue: { id: string; url: string; identifier: string } };
@@ -55,7 +90,7 @@ export class LinearProvider implements TicketProvider {
         input: {
           teamId: target.containerId,
           title: report.meta.title || "Bug report",
-          description: markdownBody,
+          description,
           priority: severityToLinearPriority(report.meta.severity),
         },
       },
@@ -65,26 +100,15 @@ export class LinearProvider implements TicketProvider {
       throw new TicketProviderError(this.id, "Linear rejected the issue.");
     }
     const issue = created.issueCreate.issue;
-
-    // Attach files best-effort; a failed upload should not lose the issue.
-    let done = 0;
-    for (const attachment of attachments) {
-      try {
-        await this.uploadAndAttach(issue.id, attachment);
-      } catch {
-        // swallow — issue already exists
-      }
-      done += 1;
-      onProgress?.(done / Math.max(1, attachments.length));
-    }
+    onProgress?.(1);
 
     return { identifier: issue.identifier, url: issue.url };
   }
 
-  private async uploadAndAttach(
-    issueId: string,
+  /** Upload a file to Linear's storage and return its inline-renderable asset URL. */
+  private async uploadFile(
     attachment: SubmissionContext["attachments"][number],
-  ): Promise<void> {
+  ): Promise<string> {
     const upload = await this.query<{
       fileUpload: {
         success: boolean;
@@ -104,17 +128,30 @@ export class LinearProvider implements TicketProvider {
       },
     );
 
+    if (!upload.fileUpload?.success || !upload.fileUpload.uploadFile) {
+      throw new TicketProviderError(this.id, "Linear fileUpload mutation was rejected.");
+    }
     const { uploadUrl, assetUrl, headers } = upload.fileUpload.uploadFile;
-    await fetch(uploadUrl, {
-      method: "PUT",
-      headers: Object.fromEntries(headers.map((h) => [h.key, h.value])),
-      body: attachment.data,
-    });
-
-    await this.query(
-      `mutation Attach($input: AttachmentCreateInput!) { attachmentCreate(input: $input) { success } }`,
-      { input: { issueId, title: attachment.filename, url: assetUrl } },
-    );
+    // The PUT to Linear's storage is CORS-blocked from a web-app origin, so it
+    // runs through the extension service worker (CORS-free via host_permissions).
+    let res: { status: number; bodyText: string };
+    try {
+      res = await extensionBridge.proxyFetch({
+        url: uploadUrl,
+        method: "PUT",
+        headers: Object.fromEntries(headers.map((h) => [h.key, h.value])),
+        body: attachment.data,
+      });
+    } catch (cause) {
+      throw new TicketProviderError(this.id, "Screenshot upload failed (extension proxy).", cause);
+    }
+    if (res.status < 200 || res.status >= 300) {
+      throw new TicketProviderError(
+        this.id,
+        `Screenshot upload failed (${res.status}). ${res.bodyText.slice(0, 200)}`,
+      );
+    }
+    return assetUrl;
   }
 
   private async query<T>(query: string, variables?: Record<string, unknown>): Promise<T> {
