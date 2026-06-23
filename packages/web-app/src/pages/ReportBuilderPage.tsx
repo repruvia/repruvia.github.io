@@ -4,13 +4,14 @@ import { PageContainer } from "@/components/atoms/PageContainer";
 import { StateScreen } from "@/components/molecules/StateScreen";
 import { ReportBuilderSkeleton } from "@/components/molecules/ReportBuilderSkeleton";
 import { ReportHeader } from "@/components/organisms/ReportHeader";
-import { AiAssistCard } from "@/components/organisms/AiAssistCard";
 import { ReportTabs } from "@/components/organisms/ReportTabs";
 import { SubmitBar } from "@/components/organisms/SubmitBar";
 import { SubmitDialog } from "@/components/organisms/SubmitDialog";
 import { useReportEditor } from "@/hooks/useReportEditor";
 import { useSessionId, useSessionLoader } from "@/hooks/useSessionLoader";
 import { useReportActions } from "@/hooks/useReportActions";
+import { useCreatedTicket } from "@/hooks/useCreatedTicket";
+import { AiRefineProvider } from "@/hooks/aiRefine";
 import type { ProviderId } from "@/lib/integrations/providerRegistry";
 
 export function ReportBuilderPage() {
@@ -26,6 +27,7 @@ export function ReportBuilderPage() {
   );
 
   const reportActions = useReportActions(report);
+  const { ticket, setTicket } = useCreatedTicket(sessionId);
   const [submitting, setSubmitting] = useState<ProviderId | null>(null);
 
   if (!sessionId) {
@@ -44,26 +46,27 @@ export function ReportBuilderPage() {
   }
 
   return (
-    <PageContainer className="flex flex-col gap-4 py-6">
-      <AiAssistCard report={report} />
+    <AiRefineProvider report={report}>
+      <PageContainer className="flex flex-col gap-4 py-6">
+        <ReportHeader
+          meta={meta}
+          environment={session.environment}
+          onTitleChange={actions.setTitle}
+          onDescriptionChange={actions.setDescription}
+          onSeverityChange={actions.setSeverity}
+        />
 
-      <ReportHeader
-        meta={meta}
-        environment={session.environment}
-        onTitleChange={actions.setTitle}
-        onDescriptionChange={actions.setDescription}
-        onSeverityChange={actions.setSeverity}
-      />
+        <ReportTabs editor={editor} />
 
-      <ReportTabs editor={editor} />
+        <SubmitBar actions={reportActions} onSubmit={setSubmitting} createdTicket={ticket} />
 
-      <SubmitBar actions={reportActions} onSubmit={setSubmitting} />
-
-      <SubmitDialog
-        providerId={submitting}
-        report={report}
-        onClose={() => setSubmitting(null)}
-      />
-    </PageContainer>
+        <SubmitDialog
+          providerId={submitting}
+          report={report}
+          onClose={() => setSubmitting(null)}
+          onCreated={setTicket}
+        />
+      </PageContainer>
+    </AiRefineProvider>
   );
 }
