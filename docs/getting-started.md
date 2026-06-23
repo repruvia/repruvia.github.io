@@ -4,7 +4,7 @@
 
 1. Clone and install:
    ```bash
-   git clone https://github.com/leoAnimesh/repruvia
+   git clone https://github.com/repruvia/repruvia.github.io
    cd repruvia
    pnpm install
    pnpm build:shared

@@ -5,7 +5,7 @@
 **Turn a recording session into a structured, ready-to-submit bug report — no backend, no AI fees, all in the browser.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
-[![CI](https://github.com/leoAnimesh/repruvia/actions/workflows/ci.yml/badge.svg)](https://github.com/leoAnimesh/repruvia/actions/workflows/ci.yml)
+[![CI](https://github.com/repruvia/repruvia.github.io/actions/workflows/ci.yml/badge.svg)](https://github.com/repruvia/repruvia.github.io/actions/workflows/ci.yml)
 
 </div>
 

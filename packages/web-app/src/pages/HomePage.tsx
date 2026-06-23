@@ -74,7 +74,7 @@ export function HomePage() {
               <Chrome className="size-4" /> Install the extension
             </a>
             <a
-              href="https://github.com/leoAnimesh/repruvia"
+              href="https://github.com/repruvia/repruvia.github.io"
               target="_blank"
               rel="noreferrer"
               className="inline-flex items-center gap-2 rounded-md border px-5 py-2.5 text-sm font-medium hover:bg-accent"

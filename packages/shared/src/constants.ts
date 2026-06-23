@@ -28,5 +28,5 @@ export const ALLOWED_WEB_APP_ORIGINS = [
   "http://localhost:3000",
   "https://repruvia.app",
   // GitHub Pages deploy — set to your actual Pages origin if different.
-  "https://leoanimesh.github.io",
+  "https://repruvia.github.io",
 ] as const;

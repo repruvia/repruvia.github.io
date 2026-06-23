@@ -3,7 +3,7 @@
 > **Version:** 1.0.0  
 > **Status:** Draft  
 > **License:** MIT (Open Source)  
-> **Repository:** github.com/leoAnimesh/repruvia  
+> **Repository:** github.com/repruvia/repruvia.github.io  
 
 ---
 
@@ -727,7 +727,7 @@ repruvia/
 
 ### Local Dev
 ```bash
-git clone https://github.com/leoAnimesh/repruvia
+git clone https://github.com/repruvia/repruvia.github.io
 cd repruvia
 pnpm install
 

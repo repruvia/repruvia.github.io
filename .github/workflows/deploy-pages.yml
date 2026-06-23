@@ -33,10 +33,10 @@ jobs:
 
       - run: pnpm build:shared
 
-      - name: Build web app (under the repo subpath)
+      - name: Build web app (served at the org-site root)
         run: pnpm --filter @repruvia/web-app build
         env:
-          VITE_BASE: /repruvia/
+          VITE_BASE: /
 
       - name: SPA fallback (deep links / refresh)
         run: cp packages/web-app/dist/index.html packages/web-app/dist/404.html

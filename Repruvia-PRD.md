@@ -3,7 +3,7 @@
 > **Version:** 1.0.0  
 > **Status:** Draft  
 > **License:** MIT (Open Source)  
-> **Repository:** github.com/leoAnimesh/repruvia  
+> **Repository:** github.com/repruvia/repruvia.github.io  
 
 ---
 
