@@ -1,5 +1,6 @@
 import {
   ALLOWED_WEB_APP_ORIGINS,
+  isProxyFetchAllowed,
   SESSION_TTL_MS,
   toSessionSummary,
   type CaptureMessage,
@@ -83,12 +84,51 @@ chrome.runtime.onMessageExternal.addListener(
           .catch((e) => sendResponse({ ok: false, error: String(e) }));
         return true;
 
+      case "PROXY_FETCH":
+        proxyFetch(request)
+          .then(sendResponse)
+          .catch((e) => sendResponse({ ok: false, error: String(e) }));
+        return true;
+
       default:
         sendResponse({ ok: false, error: "Unknown request" });
         return false;
     }
   },
 );
+
+/**
+ * Perform a cross-origin request from the service worker (CORS-free thanks to
+ * `host_permissions`) on the web app's behalf. Restricted to ticket-provider
+ * hosts so the page can't use the extension as an open proxy.
+ */
+async function proxyFetch(
+  request: Extract<ExternalRequest, { type: "PROXY_FETCH" }>,
+): Promise<ExternalResponse> {
+  if (!isProxyFetchAllowed(request.url)) {
+    return { ok: false, error: "URL not allowed" };
+  }
+  const body = request.bodyBase64 ? new Blob([base64ToBytes(request.bodyBase64)]) : undefined;
+  const res = await fetch(request.url, {
+    method: request.method,
+    headers: request.headers,
+    body,
+  });
+  return {
+    ok: true,
+    type: "PROXY_FETCH",
+    status: res.status,
+    statusText: res.statusText,
+    bodyText: await res.text().catch(() => ""),
+  };
+}
+
+function base64ToBytes(base64: string): Uint8Array<ArrayBuffer> {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(new ArrayBuffer(binary.length));
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
 
 // ---- Maintenance: prune stale sessions on startup/install ----
 

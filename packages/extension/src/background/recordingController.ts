@@ -10,12 +10,14 @@ import { SessionRecorder } from "./recording/sessionRecorder.js";
 
 /**
  * Where to open the report builder. An explicit `VITE_WEB_APP_URL` always wins;
- * otherwise dev builds target the local web app and production builds (what ships
- * to the Chrome Web Store) target the live GitHub Pages site.
+ * otherwise the local web app for dev builds and the live GitHub Pages site for
+ * production builds (what ships to the Chrome Web Store). Gate on MODE, not
+ * `import.meta.env.DEV` — the latter is false for ANY `vite build` (even the
+ * `--mode development` watch build the extension's `dev` script uses).
  */
 const WEB_APP_URL =
   import.meta.env.VITE_WEB_APP_URL ??
-  (import.meta.env.DEV ? "http://localhost:3000" : "https://repruvia.github.io");
+  (import.meta.env.MODE === "production" ? "https://repruvia.github.io" : "http://localhost:3000");
 
 /**
  * Top-level coordinator (TRD §2.3). Owns the recording lifecycle and is the

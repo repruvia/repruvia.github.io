@@ -38,13 +38,27 @@ export type ControlMessage =
 export type ExternalRequest =
   | { type: "GET_SESSION"; sessionId: string }
   | { type: "LIST_SESSIONS" }
-  | { type: "DELETE_SESSION"; sessionId: string };
+  | { type: "DELETE_SESSION"; sessionId: string }
+  /**
+   * Run a cross-origin request from the extension service worker, which (with
+   * `host_permissions`) bypasses the page's CORS — needed to upload ticket
+   * screenshots to provider storage (e.g. Linear's `uploads.linear.app`) that
+   * rejects browser-origin PUTs. `body` is base64 so it survives JSON messaging.
+   */
+  | {
+      type: "PROXY_FETCH";
+      url: string;
+      method: string;
+      headers: Record<string, string>;
+      bodyBase64?: string;
+    };
 
 /** Responses to `ExternalRequest`. */
 export type ExternalResponse =
   | { ok: true; type: "GET_SESSION"; session: RepruviaSession | null }
   | { ok: true; type: "LIST_SESSIONS"; sessions: SessionSummary[] }
   | { ok: true; type: "DELETE_SESSION" }
+  | { ok: true; type: "PROXY_FETCH"; status: number; statusText: string; bodyText: string }
   | { ok: false; error: string };
 
 export type RecordingState = "idle" | "recording";
