@@ -39,6 +39,10 @@ export const ALLOWED_WEB_APP_ORIGINS = [
 export const PROXY_FETCH_ALLOWED_HOST_SUFFIXES = [
   "linear.app", // api.linear.app, uploads.linear.app
   "atlassian.net", // <site>.atlassian.net (Jira)
+  "openai.com", // OpenAI API
+  "anthropic.com", // Anthropic API
+  "googleapis.com", // Google Gemini (generativelanguage.googleapis.com)
+  "x.ai", // xAI Grok (api.x.ai)
 ] as const;
 
 /** True when `url`'s host is covered by the proxy allowlist. */
