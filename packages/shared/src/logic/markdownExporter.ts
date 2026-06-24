@@ -53,7 +53,9 @@ export function exportReportToMarkdown(report: Report, options: MarkdownExportOp
     if (step.screenshot && screenshots !== "omit") {
       const src =
         screenshots === "link" && screenshotPath ? screenshotPath(step) : step.screenshot;
-      lines.push(`![Step ${step.index}](${src})`, "");
+      // In link mode a resolver may return "" (e.g. an upload that failed) —
+      // skip the image rather than emit a broken `![]()`.
+      if (src) lines.push(`![Step ${step.index}](${src})`, "");
     }
     appendStepContext(lines, step, consoleByStep, networkByStep, session.startedAt);
     lines.push("");

@@ -30,3 +30,32 @@ export const ALLOWED_WEB_APP_ORIGINS = [
   // GitHub Pages deploy — set to your actual Pages origin if different.
   "https://repruvia.github.io",
 ] as const;
+
+/**
+ * Hosts the `PROXY_FETCH` channel may target. The extension performs these
+ * cross-origin requests on the web app's behalf (bypassing page CORS), so the
+ * allowlist is kept tight to ticket-provider storage/API endpoints only.
+ */
+export const PROXY_FETCH_ALLOWED_HOST_SUFFIXES = [
+  "linear.app", // api.linear.app, uploads.linear.app
+  "atlassian.net", // <site>.atlassian.net (Jira)
+  "openai.com", // OpenAI API
+  "anthropic.com", // Anthropic API
+  "generativelanguage.googleapis.com", // Google Gemini (only this host, not all of googleapis.com)
+  "x.ai", // xAI Grok (api.x.ai)
+] as const;
+
+/** True when `url`'s host is covered by the proxy allowlist. */
+export function isProxyFetchAllowed(url: string): boolean {
+  let host: string;
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:") return false;
+    host = parsed.hostname;
+  } catch {
+    return false;
+  }
+  return PROXY_FETCH_ALLOWED_HOST_SUFFIXES.some(
+    (suffix) => host === suffix || host.endsWith(`.${suffix}`),
+  );
+}

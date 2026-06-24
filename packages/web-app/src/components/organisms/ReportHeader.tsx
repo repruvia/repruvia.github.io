@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { SeveritySelect } from "@/components/molecules/SeveritySelect";
 import { RichTextEditor } from "@/components/molecules/RichTextEditor";
 import { EnvironmentBadges } from "@/components/molecules/EnvironmentBadges";
+import { AiRefineButton } from "@/components/molecules/AiRefineButton";
 
 interface ReportHeaderProps {
   meta: ReportMeta;
@@ -25,7 +26,10 @@ export function ReportHeader({
     <Card>
       <CardContent className="flex flex-col gap-4">
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="report-title">Title</Label>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="report-title">Title</Label>
+            <AiRefineButton field="title" text={meta.title} onResult={onTitleChange} />
+          </div>
           <Input
             id="report-title"
             value={meta.title}
@@ -36,7 +40,10 @@ export function ReportHeader({
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <Label>Description</Label>
+          <div className="flex items-center justify-between">
+            <Label>Description</Label>
+            <AiRefineButton field="description" text={meta.description} onResult={onDescriptionChange} />
+          </div>
           <RichTextEditor
             value={meta.description}
             placeholder="Summarize what went wrong and what you expected…"

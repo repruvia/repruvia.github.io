@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -25,22 +26,36 @@ interface SubmitDialogProps {
   providerId: ProviderId | null;
   report: Report | null;
   onClose: () => void;
+  /** Called once an issue is successfully created, so the caller can persist it. */
+  onCreated?: (ticket: { provider: ProviderId; identifier: string; url: string }) => void;
 }
 
 /**
  * Drives the connect → pick container → submit flow for a chosen provider.
  * Pure UI over `useTicketSubmission`; it knows nothing about Linear vs Jira.
  */
-export function SubmitDialog({ providerId, report, onClose }: SubmitDialogProps) {
+export function SubmitDialog({ providerId, report, onClose, onCreated }: SubmitDialogProps) {
   const { state, providers, connect, submit, reset } = useTicketSubmission(report);
   const [containerId, setContainerId] = useState<string>("");
+  const [includeImages, setIncludeImages] = useState(true);
 
   const open = providerId !== null;
   const provider = providerId ? providers[providerId] : null;
+  const hasScreenshots = report?.session.steps.some((s) => s.screenshot) ?? false;
+
+  // Surface a successful creation to the parent (once per result) so it can be
+  // persisted and the action bar can switch to "View issue".
+  useEffect(() => {
+    if (state.phase === "done" && state.result && providerId) {
+      onCreated?.({ provider: providerId, ...state.result });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.phase]);
 
   useEffect(() => {
     if (open && providerId) {
       setContainerId("");
+      setIncludeImages(true);
       void connect(providerId);
     } else {
       reset();
@@ -85,6 +100,23 @@ export function SubmitDialog({ providerId, report, onClose }: SubmitDialogProps)
                 ))}
               </SelectContent>
             </Select>
+
+            {hasScreenshots && (
+              <div className="mt-2 flex items-center justify-between gap-4 rounded-md border p-3">
+                <div className="flex flex-col gap-0.5">
+                  <Label htmlFor="include-images">Include screenshots</Label>
+                  <span className="text-xs text-muted-foreground">
+                    Embed step screenshots inline in the issue.
+                  </span>
+                </div>
+                <Switch
+                  id="include-images"
+                  checked={includeImages}
+                  onCheckedChange={setIncludeImages}
+                  disabled={state.phase === "submitting"}
+                />
+              </div>
+            )}
           </div>
         )}
 
@@ -110,7 +142,7 @@ export function SubmitDialog({ providerId, report, onClose }: SubmitDialogProps)
               </Button>
               <Button
                 disabled={!containerId || state.phase !== "ready"}
-                onClick={() => providerId && submit(providerId, containerId)}
+                onClick={() => providerId && submit(providerId, containerId, includeImages)}
               >
                 {state.phase === "submitting" && <Loader2 className="size-4 animate-spin" />}
                 {state.phase === "submitting"

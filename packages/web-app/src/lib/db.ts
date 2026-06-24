@@ -5,11 +5,12 @@
  */
 
 const DB_NAME = "repruvia_web";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 export const STORES = {
   REPORTS: "reports",
   SETTINGS: "settings",
+  TICKETS: "tickets",
 } as const;
 
 let dbPromise: Promise<IDBDatabase> | null = null;
@@ -25,6 +26,9 @@ export function openWebDb(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains(STORES.SETTINGS)) {
         db.createObjectStore(STORES.SETTINGS);
+      }
+      if (!db.objectStoreNames.contains(STORES.TICKETS)) {
+        db.createObjectStore(STORES.TICKETS, { keyPath: "sessionId" });
       }
     };
     request.onsuccess = () => resolve(request.result);

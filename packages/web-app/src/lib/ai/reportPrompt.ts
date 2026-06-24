@@ -1,5 +1,5 @@
 import { resolveStepText, SEVERITIES, type Report, type Severity } from "@repruvia/shared";
-import type { ChatMessage } from "./types";
+import type { ChatMessage, ContentPart } from "./types";
 
 /** Structured result the model is asked to produce in one shot. */
 export interface AnalysisResult {
@@ -87,6 +87,65 @@ export function buildAnalysisMessages(report: Report): ChatMessage[] {
   return [
     { role: "system", content: SYSTEM_PROMPT },
     { role: "user", content: user },
+  ];
+}
+
+/** A single report field the user can refine in place with AI. */
+export type RefineField = "title" | "description" | "step";
+
+const REFINE_SYSTEM: Record<RefineField, string> = {
+  title:
+    "You are a senior QA engineer. Rewrite the given text into ONE concise, specific bug-report title (max 80 chars). Output ONLY the title — no quotes, no markdown, no preamble.",
+  description:
+    "You are a senior QA engineer. Rewrite the given text into a clear bug description in Markdown, under 150 words: a short summary plus the likely expected vs actual behaviour. Use ONLY the provided evidence; never invent details. Output ONLY the description.",
+  step:
+    "You are a senior QA engineer. Rewrite the given line into ONE clear, concise sentence describing what the tester did. Keep Markdown code formatting (wrap URL paths and element/tag names in backticks). Output ONLY the single line — no list marker, no quotes, no preamble.",
+};
+
+/** Compact session summary used to ground title/description refinements. */
+function sessionContext(report: Report): string {
+  const { session } = report;
+  const steps = session.steps.map((s) => `${s.index}. ${resolveStepText(s)}`).join("\n");
+  const errors =
+    session.consoleErrors.map((c) => `- [${c.level}] ${c.message}`).join("\n") || "none";
+  return [
+    `URL: ${session.environment.url}`,
+    "Steps:",
+    steps || "none recorded",
+    "Console errors:",
+    errors,
+  ].join("\n");
+}
+
+/** Build chat messages to refine a single field in place (plain-text output). */
+export function buildFieldRefineMessages(
+  field: RefineField,
+  current: string,
+  report: Report,
+  screenshot?: string | null,
+): ChatMessage[] {
+  const userText =
+    field === "step"
+      ? `Rewrite this step line${screenshot ? " (a screenshot of the step is attached)" : ""}:\n${current || "(empty)"}`
+      : [
+          `Current ${field}:`,
+          current || "(empty)",
+          "",
+          "Session context for grounding:",
+          sessionContext(report),
+        ].join("\n");
+
+  const userContent: string | ContentPart[] =
+    field === "step" && screenshot
+      ? [
+          { type: "text", text: userText },
+          { type: "image", dataUrl: screenshot },
+        ]
+      : userText;
+
+  return [
+    { role: "system", content: REFINE_SYSTEM[field] },
+    { role: "user", content: userContent },
   ];
 }
 

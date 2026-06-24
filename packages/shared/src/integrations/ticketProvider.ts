@@ -24,6 +24,8 @@ export interface SubmissionContext {
   report: Report;
   /** Pre-rendered Markdown body (providers may transform it further). */
   markdownBody: string;
+  /** Reporter display name, for providers that re-render the body themselves. */
+  reportedBy?: string;
   attachments: ReportAttachment[];
   target: SubmissionTarget;
   /** Progress callback (0–1) for long uploads. */

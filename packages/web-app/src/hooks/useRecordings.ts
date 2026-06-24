@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { SessionSummary } from "@repruvia/shared";
 import { ExtensionUnavailableError, extensionBridge } from "@/lib/extensionBridge";
 import { deletePersistedReport, loadAllPersistedMeta } from "@/lib/reportPersistence";
+import { deleteCreatedTicket } from "@/lib/ticketPersistence";
 
 export type RecordingsStatus = "checking" | "unavailable" | "ready" | "error";
 
@@ -59,6 +60,21 @@ export function useRecordings() {
     void refresh();
   }, [refresh]);
 
+  // Re-probe when the tab regains focus/visibility so a user who installs the
+  // extension in another tab and comes back sees the library without a manual
+  // refresh.
+  useEffect(() => {
+    const recheck = () => {
+      if (document.visibilityState === "visible") void refresh();
+    };
+    document.addEventListener("visibilitychange", recheck);
+    window.addEventListener("focus", recheck);
+    return () => {
+      document.removeEventListener("visibilitychange", recheck);
+      window.removeEventListener("focus", recheck);
+    };
+  }, [refresh]);
+
   const remove = useCallback(
     async (sessionId: string) => {
       // Optimistic removal, then reconcile with the extension.
@@ -66,6 +82,7 @@ export function useRecordings() {
       try {
         await extensionBridge.deleteSession(sessionId);
         await deletePersistedReport(sessionId);
+        await deleteCreatedTicket(sessionId);
       } finally {
         void refresh();
       }

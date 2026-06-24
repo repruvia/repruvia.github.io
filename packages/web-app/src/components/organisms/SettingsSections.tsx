@@ -1,6 +1,5 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import {
   Select,
@@ -10,7 +9,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { JiraIcon, LinearIcon } from "@/components/atoms/BrandIcons";
-import { AI_MODELS, type AppSettings } from "@/lib/settings";
+import {
+  AI_PROVIDER_MODELS,
+  type AiProviderConfig,
+  type AiProviderId,
+  type AppSettings,
+} from "@/lib/settings";
 import { cn } from "@/lib/utils";
 
 interface SectionProps {
@@ -165,45 +169,110 @@ export function IntegrationsSection({ settings, update }: SectionProps) {
 }
 
 export function AiSection({ settings, update }: SectionProps) {
+  const active = settings.ai.activeProvider;
   return (
-    <div className="flex flex-col gap-5">
-      <div className="flex items-center justify-between gap-4 rounded-lg border p-3">
-        <div>
-          <p className="font-medium">Enable AI refine</p>
-          <p className="text-sm text-muted-foreground">
-            Show the on-device “Refine with AI” action on reports.
-          </p>
-        </div>
-        <Switch
-          checked={settings.aiEnabled}
-          onCheckedChange={(checked) => update("aiEnabled", checked)}
-          aria-label="Enable AI refine"
-        />
-      </div>
-
-      <Field label="Model">
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-1.5">
+        <Label>AI provider</Label>
         <Select
-          value={settings.aiModel}
-          onValueChange={(value) => update("aiModel", value)}
+          value={active ?? "off"}
+          onValueChange={(v) =>
+            update("ai", { ...settings.ai, activeProvider: v === "off" ? null : (v as AiProviderId) })
+          }
         >
           <SelectTrigger className="w-full">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {AI_MODELS.map((model) => (
-              <SelectItem key={model.id} value={model.id}>
-                {model.label}
-              </SelectItem>
-            ))}
+            <SelectItem value="off">Off</SelectItem>
+            <SelectItem value="webllm">On-device (private, no key)</SelectItem>
+            <SelectItem value="openai">OpenAI</SelectItem>
+            <SelectItem value="anthropic">Anthropic</SelectItem>
+            <SelectItem value="gemini">Google Gemini</SelectItem>
+            <SelectItem value="grok">xAI Grok</SelectItem>
           </SelectContent>
         </Select>
-      </Field>
+      </div>
 
-      <p className="text-xs text-muted-foreground">
-        Runs entirely in your browser via WebGPU — no API key, nothing leaves your device. Larger
-        models give better results but take longer to download and run. A model change applies on
-        the next page reload.
+      {active && (
+        <ProviderConfig
+          provider={active}
+          config={settings.ai.providers[active]}
+          onChange={(next) =>
+            update("ai", {
+              ...settings.ai,
+              providers: { ...settings.ai.providers, [active]: next },
+            })
+          }
+        />
+      )}
+
+      <p className="rounded-md border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
+        On-device keeps everything local. Choosing a cloud provider sends report text — and, when
+        refining a step, that step&apos;s screenshot — to that provider&apos;s API. API keys are
+        stored locally in your browser. AI is off until you pick and configure a provider.
       </p>
+    </div>
+  );
+}
+
+function ProviderConfig({
+  provider,
+  config,
+  onChange,
+}: {
+  provider: AiProviderId;
+  config: AiProviderConfig;
+  onChange: (next: AiProviderConfig) => void;
+}) {
+  const models = AI_PROVIDER_MODELS[provider];
+  const isCustom = !models.some((m) => m.id === config.model);
+  return (
+    <div className="flex flex-col gap-4 rounded-md border p-4">
+      {provider !== "webllm" && (
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="ai-key">API key</Label>
+          <Input
+            id="ai-key"
+            type="password"
+            value={config.apiKey ?? ""}
+            placeholder="Paste your API key"
+            onChange={(e) => onChange({ ...config, apiKey: e.target.value })}
+          />
+        </div>
+      )}
+      <div className="flex flex-col gap-1.5">
+        <Label>Model</Label>
+        <Select
+          value={isCustom ? "custom" : config.model}
+          onValueChange={(v) => onChange({ ...config, model: v === "custom" ? "" : v })}
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {models.map((m) => (
+              <SelectItem key={m.id} value={m.id}>
+                {m.label}
+              </SelectItem>
+            ))}
+            <SelectItem value="custom">Custom…</SelectItem>
+          </SelectContent>
+        </Select>
+        {isCustom && (
+          <Input
+            value={config.model}
+            placeholder="Custom model id"
+            onChange={(e) => onChange({ ...config, model: e.target.value })}
+          />
+        )}
+      </div>
+      {provider === "webllm" && (
+        <p className="text-xs text-muted-foreground">
+          Runs in your browser via WebGPU — no key, nothing leaves your device. Vision needs the
+          Phi-3.5 model (large). A model change applies on the next reload.
+        </p>
+      )}
     </div>
   );
 }

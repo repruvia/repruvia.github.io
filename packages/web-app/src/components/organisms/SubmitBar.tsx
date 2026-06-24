@@ -1,4 +1,4 @@
-import { ChevronDown, Clipboard, Copy, Download, FileText, Send } from "lucide-react";
+import { ChevronDown, Clipboard, Copy, Download, ExternalLink, FileText, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -13,10 +13,12 @@ import type { ReportActions } from "@/hooks/useReportActions";
 interface SubmitBarProps {
   actions: ReportActions;
   onSubmit: (providerId: ProviderId) => void;
+  /** A ticket already created from this report — flips the action to "View issue". */
+  createdTicket?: { identifier: string; url: string } | null;
 }
 
 /** Sticky action bar: each button opens a menu of options that run on click. */
-export function SubmitBar({ actions, onSubmit }: SubmitBarProps) {
+export function SubmitBar({ actions, onSubmit, createdTicket }: SubmitBarProps) {
   return (
     <div className="sticky bottom-0 z-10 flex flex-wrap items-center justify-end gap-2 rounded-lg border bg-card/80 p-3 backdrop-blur">
       <Menu
@@ -37,15 +39,23 @@ export function SubmitBar({ actions, onSubmit }: SubmitBarProps) {
           { icon: <Clipboard />, label: "Raw text", onSelect: actions.copyText },
         ]}
       />
-      <Menu
-        label="Raise an issue"
-        icon={<Send />}
-        variant="default"
-        items={[
-          { icon: <LinearIcon className="size-4" />, label: "Linear", onSelect: () => onSubmit("linear") },
-          { icon: <JiraIcon className="size-4" />, label: "Jira", onSelect: () => onSubmit("jira") },
-        ]}
-      />
+      {createdTicket ? (
+        <Button asChild variant="default">
+          <a href={createdTicket.url} target="_blank" rel="noreferrer">
+            <ExternalLink /> View {createdTicket.identifier}
+          </a>
+        </Button>
+      ) : (
+        <Menu
+          label="Raise an issue"
+          icon={<Send />}
+          variant="default"
+          items={[
+            { icon: <LinearIcon className="size-4" />, label: "Linear", onSelect: () => onSubmit("linear") },
+            { icon: <JiraIcon className="size-4" />, label: "Jira", onSelect: () => onSubmit("jira") },
+          ]}
+        />
+      )}
     </div>
   );
 }

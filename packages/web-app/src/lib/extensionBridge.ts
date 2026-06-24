@@ -139,4 +139,39 @@ export const extensionBridge = {
     const res = await request({ type: "DELETE_SESSION", sessionId });
     if (!res.ok) throw new Error(res.error);
   },
+
+  /**
+   * Run a cross-origin request from the extension service worker (CORS-free),
+   * used to upload ticket screenshots to provider storage that rejects
+   * browser-origin requests. Allowed hosts are enforced extension-side.
+   */
+  async proxyFetch(init: {
+    url: string;
+    method: string;
+    headers: Record<string, string>;
+    body?: Blob;
+  }): Promise<{ status: number; statusText: string; bodyText: string }> {
+    const bodyBase64 = init.body ? await blobToBase64(init.body) : undefined;
+    const res = await request({
+      type: "PROXY_FETCH",
+      url: init.url,
+      method: init.method,
+      headers: init.headers,
+      bodyBase64,
+    });
+    if (!res.ok) throw new Error(res.error);
+    if (res.type !== "PROXY_FETCH") throw new Error("Unexpected proxy response");
+    return { status: res.status, statusText: res.statusText, bodyText: res.bodyText };
+  },
 };
+
+/** Encode a Blob as base64 (no data-URL prefix) for JSON messaging. */
+async function blobToBase64(blob: Blob): Promise<string> {
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  let binary = "";
+  const CHUNK = 0x8000; // avoid arg-count limits on String.fromCharCode
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+  }
+  return btoa(binary);
+}

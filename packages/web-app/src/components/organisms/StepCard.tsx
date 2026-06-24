@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { StepNumber } from "@/components/atoms/StepNumber";
 import { StepThumbnail } from "@/components/atoms/StepThumbnail";
 import { InlineEditable } from "@/components/molecules/InlineEditable";
+import { AiRefineButton } from "@/components/molecules/AiRefineButton";
 import { ReactComponentBadge } from "@/components/molecules/ReactComponentBadge";
 import { StepErrors } from "@/components/molecules/StepErrors";
 
@@ -51,6 +52,14 @@ export function StepCard({
                 />
               </div>
               <div className="flex shrink-0 gap-1">
+                <AiRefineButton
+                  field="step"
+                  text={resolveStepText(step)}
+                  screenshot={step.screenshot}
+                  onResult={onEdit}
+                  label={`Refine step ${step.index} with AI`}
+                  className="size-9"
+                />
                 <Button
                   variant="ghost"
                   size="icon"

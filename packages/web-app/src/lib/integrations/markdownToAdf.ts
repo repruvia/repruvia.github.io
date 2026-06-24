@@ -1,7 +1,9 @@
 /**
  * Minimal Markdown → Atlassian Document Format converter. Covers the structure
- * Repruvia emits (headings, paragraphs, bullet lines). Images are dropped — they
- * are uploaded as real attachments instead, which renders better in Jira.
+ * Repruvia emits (headings, paragraphs, bullet lines, images). An image line
+ * `![alt](path)` becomes an ADF `media` node when `resolveMedia` maps its path to
+ * an uploaded Jira attachment; otherwise it is dropped (the attachment still
+ * shows in the issue's attachment panel).
  */
 export interface AdfNode {
   type: string;
@@ -16,13 +18,39 @@ export interface AdfDoc {
   content: AdfNode[];
 }
 
-export function markdownToAdf(markdown: string): AdfDoc {
+/** Resolve an image markdown path to an uploaded Jira media reference, or null to drop it. */
+export type MediaResolver = (path: string) => { id: string; collection?: string } | null;
+
+export function markdownToAdf(markdown: string, resolveMedia?: MediaResolver): AdfDoc {
   const content: AdfNode[] = [];
 
   for (const rawLine of markdown.split("\n")) {
     const line = rawLine.trimEnd();
     if (!line.trim()) continue;
-    if (line.startsWith("![")) continue; // image — handled as attachment
+
+    const image = /^!\[([^\]]*)\]\(([^)]+)\)/.exec(line);
+    if (image) {
+      const media = resolveMedia?.(image[2]!);
+      if (media) {
+        content.push({
+          type: "mediaSingle",
+          attrs: { layout: "center" },
+          content: [
+            {
+              type: "media",
+              attrs: {
+                type: "file",
+                id: media.id,
+                // Include `collection` whenever provided (empty string is valid
+                // and required for issue-attached files).
+                ...(media.collection !== undefined ? { collection: media.collection } : {}),
+              },
+            },
+          ],
+        });
+      }
+      continue; // unresolved image — handled as a plain attachment
+    }
 
     const heading = /^(#{1,6})\s+(.*)$/.exec(line);
     if (heading) {
