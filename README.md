@@ -35,8 +35,8 @@ Everything runs in your browser. No server, no storage costs, no telemetry — y
 repruvia/
 ├── packages/
 │   ├── shared/      # Framework-agnostic types + pure logic (used by both)
-│   ├── extension/   # Chrome MV3 capture engine (CRXJS + Vite + TS)
-│   └── web-app/     # React 19 report builder (Vite + Tailwind v4 + shadcn/ui)
+│   ├── extension/   # Chrome MV3 capture + snip engine (CRXJS + Vite + TS)
+│   └── web-app/     # React 19 report builder + screenshot annotator (Vite + Tailwind v4 + shadcn/ui)
 ├── docs/            # Integration & getting-started guides
 └── .github/         # CI, release, issue templates
 ```
@@ -58,16 +58,17 @@ Load the extension: `chrome://extensions` → **Developer Mode** → **Load unpa
 - **SOLID & DRY** — capture modules implement a shared `CaptureModule` interface; ticket integrations implement a `TicketProvider` interface; pure domain logic lives in `@repruvia/shared` and is reused by both artifacts.
 - **UI / logic separation** — every web-app component is presentational; all behaviour lives in hooks (`useSession`, `useReportEditor`, `useTicketSubmission`, …).
 - **Atomic design** — `components/ui` (shadcn primitives) → `atoms` → `molecules` → `organisms` → `pages`.
-- **Robust MV3 capture** — DOM events are captured by content scripts in two execution worlds; screenshots are serialized and throttled to respect Chrome's `captureVisibleTab` rate limit so no step loses its image.
-- **Optional in-browser AI** — draft a report description from the captured steps/errors with a small LLM running entirely on-device via WebGPU ([WebLLM](https://github.com/mlc-ai/web-llm)). No server, no API key, nothing leaves the browser. Behind the `LlmEngine` interface, lazy-loaded so it costs nothing until used.
+- **Robust MV3 capture** — DOM events are captured by content scripts in two execution worlds; screenshots are serialized and throttled to respect Chrome's `captureVisibleTab` rate limit so no step loses its image. The snip tool captures a drag-selected region and crops it via `OffscreenCanvas` in the service worker.
+- **Screenshot annotator** — the snip editor (Konva) supports pen, arrow, box, and text, each selectable, movable, resizable, and rotatable, with undo/redo and auto-save; the flattened image can be copied, downloaded, or attached to a ticket.
+- **Bring-your-own-key AI (optional)** — draft a title, description, and per-step text, or generate a title + description from an annotated screenshot, using a vision model from your chosen provider (OpenAI, Anthropic, Gemini, xAI Grok, or Groq). Requests run through the extension's allowlisted proxy (CORS-free); your API key is stored locally and nothing is sent until you click. Behind an `LlmEngine` interface, lazy-loaded so it costs nothing until used.
 
 ## Tech Stack
 
-React 19 · Vite 6 · Tailwind CSS v4 · shadcn/ui · Zustand · React Router v7 · CRXJS · TypeScript · pnpm workspaces.
+React 19 · Vite 6 · Tailwind CSS v4 · shadcn/ui · Zustand · React Router v7 · Konva (canvas annotation) · TipTap (Markdown editor) · CRXJS · TypeScript · pnpm workspaces.
 
 ## Privacy
 
-Input **values are never captured** — only field labels/placeholders. Session data lives in your browser's IndexedDB and is sent nowhere until you explicitly submit a ticket. See [`packages/extension`](./packages/extension) and the [TRD](./Repruvia-TRD.md) §12.
+Input **values are never captured** — only field labels/placeholders. Recordings and snapshots live in your browser's IndexedDB and are sent nowhere until you explicitly submit a ticket. If you enable AI, the relevant text/image is sent to your chosen provider only when you click an AI action (using your own API key). See [`packages/extension`](./packages/extension) and the [TRD](./Repruvia-TRD.md) §12.
 
 📄 **[Privacy Policy](https://ash-larch-a05.notion.site/Repruvia-Privacy-Policy-381a0161464a80168f99c885addf346e)**
 
