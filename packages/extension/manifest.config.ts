@@ -41,7 +41,7 @@ export default defineManifest({
     },
     {
       // Self-identify to the Repruvia web app so it needs no extension-id config.
-      matches: ["http://localhost:3000/*", "https://repruvia.app/*", "https://repruvia.github.io/*"],
+      matches: ["http://localhost:3000/*", "https://repruvia.github.io/*"],
       js: ["src/content/webappBridge.ts"],
       run_at: "document_start",
       world: "ISOLATED",
@@ -59,6 +59,6 @@ export default defineManifest({
   devtools_page: "src/devtools/devtools.html",
   // Allow the Repruvia web app to message the extension directly.
   externally_connectable: {
-    matches: ["http://localhost:3000/*", "https://repruvia.app/*", "https://repruvia.github.io/*"],
+    matches: ["http://localhost:3000/*", "https://repruvia.github.io/*"],
   },
 });
