@@ -5,7 +5,6 @@ import { Dialog, DialogClose, DialogContent, DialogTitle } from "@/components/ui
 interface StepThumbnailProps {
   src: string | null;
   alt: string;
-  /** Optional heading shown in the preview modal title bar (e.g. "Step 10"). */
   label?: string;
 }
 

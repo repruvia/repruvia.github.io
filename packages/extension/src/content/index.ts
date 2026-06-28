@@ -1,5 +1,6 @@
-import type { CaptureMessage, PageMessage } from "@repruvia/shared";
+import type { CaptureMessage, PageMessage, TabCommand } from "@repruvia/shared";
 import { DomEventObserver } from "./dom/domEventObserver.js";
+import { beginSnapshotSelection } from "./snapshot/selectionOverlay.js";
 
 /**
  * ISOLATED-world content script. Responsibilities:
@@ -11,8 +12,6 @@ import { DomEventObserver } from "./dom/domEventObserver.js";
  * The service worker tells us when to start/stop via `TOGGLE_CAPTURE`.
  */
 
-type ToggleMessage = { type: "TOGGLE_CAPTURE"; active: boolean };
-
 function send(message: CaptureMessage): void {
   // Fire-and-forget; ignore "no receiver" errors when the SW is asleep.
   chrome.runtime.sendMessage(message).catch(() => {});
@@ -20,10 +19,13 @@ function send(message: CaptureMessage): void {
 
 const observer = new DomEventObserver((event) => send({ type: "CAPTURE_EVENT", event }));
 
-chrome.runtime.onMessage.addListener((message: ToggleMessage) => {
-  if (message?.type !== "TOGGLE_CAPTURE") return;
-  if (message.active) observer.start();
-  else observer.stop();
+chrome.runtime.onMessage.addListener((message: TabCommand) => {
+  if (message?.type === "TOGGLE_CAPTURE") {
+    if (message.active) observer.start();
+    else observer.stop();
+  } else if (message?.type === "BEGIN_SNAPSHOT") {
+    beginSnapshotSelection();
+  }
 });
 
 // Relay MAIN-world page signals to the service worker.

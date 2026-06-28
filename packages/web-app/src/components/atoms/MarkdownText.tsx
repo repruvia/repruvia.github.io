@@ -1,11 +1,7 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
-/**
- * Renders a short Markdown string inline (no block margins). Used for step
- * descriptions so `` `code` `` spans — e.g. navigation paths and element tags —
- * render highlighted. XSS-safe: react-markdown emits no raw HTML.
- */
+/** Renders a short Markdown string inline (no block margins). XSS-safe: react-markdown emits no raw HTML. */
 export function MarkdownText({ children }: { children: string }) {
   return (
     <ReactMarkdown

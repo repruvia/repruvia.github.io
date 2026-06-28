@@ -7,8 +7,8 @@ import {
 
 /**
  * Tracks the ticket (if any) created from the current report. Loaded from
- * IndexedDB on mount so a created issue is remembered across reloads, letting
- * the UI offer "View issue" instead of "Raise an issue".
+ * IndexedDB on mount so a created issue survives reloads (UI offers "View
+ * issue" instead of "Raise an issue").
  */
 export function useCreatedTicket(sessionId: string | null) {
   const [ticket, setTicketState] = useState<CreatedTicket | null>(null);

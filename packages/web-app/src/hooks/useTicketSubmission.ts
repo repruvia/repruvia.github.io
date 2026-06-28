@@ -29,8 +29,7 @@ const INITIAL: SubmissionState = {
 
 /**
  * Orchestrates submitting a report to a ticket provider. Depends only on the
- * `TicketProvider` abstraction, so the UI is identical for Linear, Jira, or any
- * future provider. The report and video are passed in; this hook owns the flow.
+ * `TicketProvider` abstraction, so the UI is identical across providers.
  */
 export function useTicketSubmission(report: Report | null) {
   const [state, setState] = useState<SubmissionState>(INITIAL);

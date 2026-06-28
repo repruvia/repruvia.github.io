@@ -7,23 +7,11 @@ import type { SessionRepository } from "../storage/types.js";
 import { captureEnvironment } from "./recording/environment.js";
 import { ChromeScreenshotCapturer } from "./recording/screenshotCapturer.js";
 import { SessionRecorder } from "./recording/sessionRecorder.js";
+import { openWebApp } from "./webAppUrl.js";
 
 /**
- * Where to open the report builder. An explicit `VITE_WEB_APP_URL` always wins;
- * otherwise the local web app for dev builds and the live GitHub Pages site for
- * production builds (what ships to the Chrome Web Store). Gate on MODE, not
- * `import.meta.env.DEV` — the latter is false for ANY `vite build` (even the
- * `--mode development` watch build the extension's `dev` script uses).
- */
-const WEB_APP_URL =
-  import.meta.env.VITE_WEB_APP_URL ??
-  (import.meta.env.MODE === "production" ? "https://repruvia.github.io" : "http://localhost:3000");
-
-/**
- * Top-level coordinator (TRD §2.3). Owns the recording lifecycle and is the
- * single place that knows about Chrome's `action`, `tabs`, and tab messaging —
- * everything else depends on abstractions. This keeps the orchestration policy
- * in one cohesive unit.
+ * Owns the recording lifecycle and is the single module that touches Chrome's
+ * `action`, `tabs`, and tab messaging — everything else depends on abstractions.
  */
 export class RecordingController {
   private recorder: SessionRecorder | null = null;
@@ -135,7 +123,6 @@ export class RecordingController {
   }
 
   private async openReportBuilder(sessionId: string): Promise<void> {
-    const url = `${WEB_APP_URL}/?${SESSION_QUERY_PARAM}=${encodeURIComponent(sessionId)}`;
-    await chrome.tabs.create({ url });
+    await openWebApp(`${SESSION_QUERY_PARAM}=${encodeURIComponent(sessionId)}`);
   }
 }

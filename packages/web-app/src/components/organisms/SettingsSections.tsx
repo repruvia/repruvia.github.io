@@ -117,7 +117,7 @@ export function IntegrationsSection({ settings, update }: SectionProps) {
         </Field>
       </div>
 
-      {/* Full-bleed: cancel CardContent's px-6 and let it stretch edge to edge. */}
+      {/* Full-bleed: cancel CardContent's px-6 so it stretches edge to edge. */}
       <Separator className="-mx-6 w-auto!" />
 
       <div className="flex flex-col gap-3">
@@ -185,11 +185,11 @@ export function AiSection({ settings, update }: SectionProps) {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="off">Off</SelectItem>
-            <SelectItem value="webllm">On-device (private, no key)</SelectItem>
             <SelectItem value="openai">OpenAI</SelectItem>
             <SelectItem value="anthropic">Anthropic</SelectItem>
             <SelectItem value="gemini">Google Gemini</SelectItem>
             <SelectItem value="grok">xAI Grok</SelectItem>
+            <SelectItem value="groq">Groq</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -208,9 +208,9 @@ export function AiSection({ settings, update }: SectionProps) {
       )}
 
       <p className="rounded-md border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
-        On-device keeps everything local. Choosing a cloud provider sends report text — and, when
-        refining a step, that step&apos;s screenshot — to that provider&apos;s API. API keys are
-        stored locally in your browser. AI is off until you pick and configure a provider.
+        Choosing a provider sends report text — and, when refining a step or generating from a
+        snapshot, that screenshot — to that provider&apos;s API. API keys are stored locally in your
+        browser. AI is off until you pick and configure a provider.
       </p>
     </div>
   );
@@ -229,18 +229,16 @@ function ProviderConfig({
   const isCustom = !models.some((m) => m.id === config.model);
   return (
     <div className="flex flex-col gap-4 rounded-md border p-4">
-      {provider !== "webllm" && (
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="ai-key">API key</Label>
-          <Input
-            id="ai-key"
-            type="password"
-            value={config.apiKey ?? ""}
-            placeholder="Paste your API key"
-            onChange={(e) => onChange({ ...config, apiKey: e.target.value })}
-          />
-        </div>
-      )}
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="ai-key">API key</Label>
+        <Input
+          id="ai-key"
+          type="password"
+          value={config.apiKey ?? ""}
+          placeholder="Paste your API key"
+          onChange={(e) => onChange({ ...config, apiKey: e.target.value })}
+        />
+      </div>
       <div className="flex flex-col gap-1.5">
         <Label>Model</Label>
         <Select
@@ -267,12 +265,6 @@ function ProviderConfig({
           />
         )}
       </div>
-      {provider === "webllm" && (
-        <p className="text-xs text-muted-foreground">
-          Runs in your browser via WebGPU — no key, nothing leaves your device. Vision needs the
-          Phi-3.5 model (large). A model change applies on the next reload.
-        </p>
-      )}
     </div>
   );
 }

@@ -1,9 +1,8 @@
 /**
- * Minimal Markdown → Atlassian Document Format converter. Covers the structure
- * Repruvia emits (headings, paragraphs, bullet lines, images). An image line
- * `![alt](path)` becomes an ADF `media` node when `resolveMedia` maps its path to
- * an uploaded Jira attachment; otherwise it is dropped (the attachment still
- * shows in the issue's attachment panel).
+ * Minimal Markdown → Atlassian Document Format converter covering what Repruvia
+ * emits (headings, paragraphs, bullets, images). An `![alt](path)` line becomes
+ * an ADF `media` node when `resolveMedia` maps its path to an uploaded Jira
+ * attachment; otherwise it's dropped (the attachment still shows in the panel).
  */
 export interface AdfNode {
   type: string;
@@ -41,8 +40,7 @@ export function markdownToAdf(markdown: string, resolveMedia?: MediaResolver): A
               attrs: {
                 type: "file",
                 id: media.id,
-                // Include `collection` whenever provided (empty string is valid
-                // and required for issue-attached files).
+                // Empty-string `collection` is valid and required for issue-attached files.
                 ...(media.collection !== undefined ? { collection: media.collection } : {}),
               },
             },

@@ -5,15 +5,18 @@ import type { RecordingItem } from "@/hooks/useRecordings";
 interface RecordingsLibraryProps {
   recordings: RecordingItem[];
   onDelete: (id: string) => void;
+  showHeading?: boolean;
 }
 
 /** Lists saved recordings, or an empty state prompting the user to record one. */
-export function RecordingsLibrary({ recordings, onDelete }: RecordingsLibraryProps) {
+export function RecordingsLibrary({ recordings, onDelete, showHeading = true }: RecordingsLibraryProps) {
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="text-sm font-semibold text-muted-foreground">
-        Your recordings ({recordings.length})
-      </h2>
+      {showHeading && (
+        <h2 className="text-sm font-semibold text-muted-foreground">
+          Your recordings ({recordings.length})
+        </h2>
+      )}
 
       {recordings.length === 0 ? (
         <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed p-10 text-center">

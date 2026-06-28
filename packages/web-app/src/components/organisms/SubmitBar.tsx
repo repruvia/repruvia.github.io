@@ -13,7 +13,6 @@ import type { ReportActions } from "@/hooks/useReportActions";
 interface SubmitBarProps {
   actions: ReportActions;
   onSubmit: (providerId: ProviderId) => void;
-  /** A ticket already created from this report — flips the action to "View issue". */
   createdTicket?: { identifier: string; url: string } | null;
 }
 

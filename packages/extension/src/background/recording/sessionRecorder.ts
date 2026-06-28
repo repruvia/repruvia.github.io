@@ -22,10 +22,8 @@ interface BufferedReact {
 }
 
 /**
- * Owns the in-progress session and converts capture inputs into persisted
- * steps. Single responsibility: session assembly. It depends on abstractions
- * (`SessionRepository`, `ScreenshotCapturer`) rather than Chrome APIs directly,
- * which keeps it unit-testable and swappable.
+ * Owns the in-progress session and assembles capture inputs into persisted
+ * steps. Depends on `SessionRepository`/`ScreenshotCapturer`, not Chrome APIs.
  */
 export class SessionRecorder {
   private session: RepruviaSession;

@@ -11,10 +11,7 @@ interface InlineEditableProps {
   className?: string;
 }
 
-/**
- * Click-to-edit text. Presentational: it reports committed edits via `onCommit`
- * and holds only ephemeral draft state. All persistence lives in the store/hook.
- */
+/** Click-to-edit text. Reports committed edits via `onCommit`; persistence lives in the store/hook. */
 export function InlineEditable({ value, onCommit, ariaLabel, className }: InlineEditableProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);

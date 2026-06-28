@@ -60,9 +60,8 @@ export function useRecordings() {
     void refresh();
   }, [refresh]);
 
-  // Re-probe when the tab regains focus/visibility so a user who installs the
-  // extension in another tab and comes back sees the library without a manual
-  // refresh.
+  // Re-probe on focus/visibility so installing the extension in another tab is
+  // picked up without a manual refresh.
   useEffect(() => {
     const recheck = () => {
       if (document.visibilityState === "visible") void refresh();

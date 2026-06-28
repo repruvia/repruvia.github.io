@@ -33,8 +33,8 @@ export class GeminiEngine implements LlmEngine {
         parts: toGeminiParts(m.content),
       }));
 
-    // Key goes in a header (not the URL query) so it doesn't leak via the proxy
-    // message/logs. Model name is path-encoded to prevent path-segment tricks.
+    // Key goes in a header (not the URL query) so it doesn't leak via proxy logs;
+    // model is path-encoded to prevent path-segment injection.
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(this.config.model)}:generateContent`;
     const data = (await proxyJson(url, { "x-goog-api-key": this.config.apiKey }, {
       systemInstruction: system ? { parts: [{ text: system }] } : undefined,

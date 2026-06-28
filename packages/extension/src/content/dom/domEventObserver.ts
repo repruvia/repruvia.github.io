@@ -7,14 +7,10 @@ export type DomEventSink = (event: DomEvent) => void;
 const INPUT_COALESCE_MS = 700;
 
 /**
- * Observes user interactions at the document level via event delegation and
- * emits normalized `DomEvent`s. Single responsibility: turn raw browser events
- * into domain events.
- *
- * Consecutive `input` events on the same field are coalesced into a single step
- * (the last value), so typing produces "Entered text in X" once — not one step
- * (and one screenshot) per keystroke. Any other interaction flushes the pending
- * input first so ordering is preserved.
+ * Observes document-level interactions (event delegation) and emits normalized
+ * `DomEvent`s. Consecutive `input`s on one field coalesce into a single step so
+ * typing makes one step/screenshot, not one per keystroke; any other
+ * interaction flushes the pending input first to preserve ordering.
  */
 export class DomEventObserver {
   private readonly sink: DomEventSink;

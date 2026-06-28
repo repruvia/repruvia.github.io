@@ -1,16 +1,18 @@
 /**
- * The web app's own IndexedDB (`repruvia_web`), shared by report-edit persistence
- * and settings. One module owns the connection + schema so the two stores don't
- * fight over the DB version.
+ * The web app's IndexedDB (`repruvia_web`). One module owns the connection +
+ * schema so the stores don't fight over the DB version.
  */
 
 const DB_NAME = "repruvia_web";
-const DB_VERSION = 3;
+// v5: bump to re-run the upgrade so the `snapshots` store is created for DBs that
+// reached v4 before it existed. Create calls below are guarded, so this is idempotent.
+const DB_VERSION = 5;
 
 export const STORES = {
   REPORTS: "reports",
   SETTINGS: "settings",
   TICKETS: "tickets",
+  SNAPSHOTS: "snapshots",
 } as const;
 
 let dbPromise: Promise<IDBDatabase> | null = null;
@@ -29,6 +31,9 @@ export function openWebDb(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains(STORES.TICKETS)) {
         db.createObjectStore(STORES.TICKETS, { keyPath: "sessionId" });
+      }
+      if (!db.objectStoreNames.contains(STORES.SNAPSHOTS)) {
+        db.createObjectStore(STORES.SNAPSHOTS, { keyPath: "snapshotId" });
       }
     };
     request.onsuccess = () => resolve(request.result);

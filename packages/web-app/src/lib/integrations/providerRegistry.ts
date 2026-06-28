@@ -5,10 +5,7 @@ import { JiraProvider } from "./jiraProvider";
 
 export type ProviderId = "linear" | "jira";
 
-/**
- * Builds the configured `TicketProvider` instances from settings. Adding a new
- * provider means adding one case here and one class — submission UI is untouched.
- */
+/** Adding a provider means one entry here + one class — submission UI is untouched. */
 export function buildProviders(settings: AppSettings): Record<ProviderId, TicketProvider> {
   return {
     linear: new LinearProvider(settings.linearToken),

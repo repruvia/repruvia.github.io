@@ -96,6 +96,17 @@ body {
   background: var(--danger);
 }
 
+.popup__button--snip {
+  background: transparent;
+  color: var(--fg);
+  border: 1px solid #2b323d;
+}
+
+.popup__button--snip:hover {
+  opacity: 1;
+  background: #1b212b;
+}
+
 .popup__footer {
   font-size: 11px;
   color: var(--muted);

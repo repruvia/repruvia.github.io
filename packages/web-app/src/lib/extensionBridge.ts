@@ -3,20 +3,20 @@ import type {
   ExternalRequest,
   ExternalResponse,
   SessionSummary,
+  Snapshot,
+  SnapshotSummary,
 } from "@repruvia/shared";
 
 /** Optional explicit override; normally the ID is auto-discovered. */
 const ENV_EXTENSION_ID = import.meta.env.VITE_EXTENSION_ID ?? "";
 
 /**
- * The published Chrome Web Store extension ID. Used as a reliable fallback so
- * the deployed web app can message the production extension directly even before
- * its content script announces itself. (Dev unpacked builds get a different ID,
- * which the content-script DOM announcement provides and takes precedence.)
+ * Reliable fallback so the deployed web app can message the production extension
+ * before its content script announces itself. Dev unpacked builds get a different
+ * ID, supplied by the DOM announcement which takes precedence.
  */
 const PUBLISHED_EXTENSION_ID = "ggjjdcmbiifemkldlbeplfljlpehepdl";
 
-/** How long to wait for the extension's self-announcement before giving up. */
 const DISCOVERY_TIMEOUT_MS = 2000;
 
 export class ExtensionUnavailableError extends Error {
@@ -51,11 +51,10 @@ let cachedId: string | null = null;
 let discovery: Promise<string> | null = null;
 
 /**
- * Resolve the extension id without manual configuration. Precedence:
- * explicit env override → DOM attribute (set synchronously by the extension's
- * web-app content script, e.g. a dev unpacked build) → the published Web Store
- * ID → a postMessage handshake for late-loading pages. Whether the extension is
- * actually installed is determined by whether messaging that id succeeds.
+ * Resolve the extension id. Precedence: env override → DOM attribute (set
+ * synchronously by the extension's content script) → postMessage handshake for
+ * late-loading pages → published Web Store ID. Whether the extension is actually
+ * installed is determined by whether messaging that id succeeds.
  */
 function resolveExtensionId(): Promise<string> {
   if (ENV_EXTENSION_ID) return Promise.resolve(ENV_EXTENSION_ID);
@@ -85,8 +84,7 @@ function resolveExtensionId(): Promise<string> {
     const timer = setTimeout(() => {
       window.removeEventListener("message", onMessage);
       discovery = null;
-      // Fall back to the published ID; if the extension isn't installed, the
-      // actual sendMessage will fail and surface as unavailable.
+      // Fall back to the published ID; if not installed, sendMessage fails and surfaces as unavailable.
       resolve(readIdFromDom() ?? PUBLISHED_EXTENSION_ID);
     }, DISCOVERY_TIMEOUT_MS);
 
@@ -96,7 +94,6 @@ function resolveExtensionId(): Promise<string> {
   return discovery;
 }
 
-/** True when the page can in principle talk to an extension (install confirmed by messaging). */
 export function isExtensionAvailable(): boolean {
   return Boolean(getRuntime());
 }
@@ -118,9 +115,8 @@ async function request(message: ExternalRequest): Promise<ExternalResponse> {
 }
 
 /**
- * Typed facade over the extension's `onMessageExternal` API. The rest of the
- * app depends on these functions, not on `chrome.*`, so the transport can be
- * swapped (e.g. mocked in tests).
+ * Typed facade over the extension's `onMessageExternal` API. The app depends on
+ * these functions, not on `chrome.*`, so the transport can be swapped/mocked.
  */
 export const extensionBridge = {
   async getSession(sessionId: string): Promise<RepruviaSession | null> {
@@ -137,6 +133,23 @@ export const extensionBridge = {
 
   async deleteSession(sessionId: string): Promise<void> {
     const res = await request({ type: "DELETE_SESSION", sessionId });
+    if (!res.ok) throw new Error(res.error);
+  },
+
+  async getSnapshot(snapshotId: string): Promise<Snapshot | null> {
+    const res = await request({ type: "GET_SNAPSHOT", snapshotId });
+    if (!res.ok) throw new Error(res.error);
+    return res.type === "GET_SNAPSHOT" ? res.snapshot : null;
+  },
+
+  async listSnapshots(): Promise<SnapshotSummary[]> {
+    const res = await request({ type: "LIST_SNAPSHOTS" });
+    if (!res.ok) throw new Error(res.error);
+    return res.type === "LIST_SNAPSHOTS" ? res.snapshots : [];
+  },
+
+  async deleteSnapshot(snapshotId: string): Promise<void> {
+    const res = await request({ type: "DELETE_SNAPSHOT", snapshotId });
     if (!res.ok) throw new Error(res.error);
   },
 

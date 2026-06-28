@@ -25,12 +25,7 @@ interface RichTextEditorProps {
   minimal?: boolean;
 }
 
-/**
- * Slack-style WYSIWYG editor whose source of truth is **Markdown** — content is
- * parsed from / serialized to Markdown via TipTap's Markdown extension, so it
- * stays compatible with the report exporter and Linear/Jira. Formatting is
- * applied via the toolbar or Markdown shortcuts (e.g. `**bold**`, `- list`).
- */
+/** WYSIWYG editor whose source of truth is Markdown (via TipTap's Markdown extension), so it stays compatible with the exporter and Linear/Jira. */
 export function RichTextEditor({ value, onChange, placeholder, minimal }: RichTextEditorProps) {
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
