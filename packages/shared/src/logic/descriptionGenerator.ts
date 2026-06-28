@@ -1,10 +1,8 @@
 import type { DomEvent } from "../types/domain.js";
 
 /**
- * Deterministically generate a human-readable step description from DOM event
- * metadata. Output is **Markdown**: paths and element tags are wrapped in
- * `` `code` `` so the UI (and exported report) can highlight them. No AI, no
- * network — pure function, fully unit-testable (TRD §8).
+ * Deterministic, pure step description from DOM event metadata. Output is
+ * Markdown (paths/tags wrapped in `` `code` `` so the UI can highlight them).
  */
 export function generateDescription(event: DomEvent): string {
   const location = event.pathname ? ` on \`${event.pathname}\`` : "";

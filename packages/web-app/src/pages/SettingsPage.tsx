@@ -24,7 +24,7 @@ type SectionId = "profile" | "integrations" | "ai";
 const SECTIONS: { id: SectionId; label: string; description: string; icon: LucideIcon }[] = [
   { id: "profile", label: "Profile", description: "Your reporter identity", icon: User },
   { id: "integrations", label: "Integrations", description: "Linear & Jira credentials", icon: Blocks },
-  { id: "ai", label: "AI", description: "On-device model & preferences", icon: Sparkles },
+  { id: "ai", label: "AI", description: "Provider & model preferences", icon: Sparkles },
 ];
 
 export function SettingsPage() {
@@ -48,7 +48,6 @@ export function SettingsPage() {
       </div>
 
       <div className="flex flex-col gap-6 md:flex-row md:items-start">
-        {/* Left: section list */}
         <nav className="flex shrink-0 gap-1 overflow-x-auto md:w-56 md:flex-col md:overflow-visible">
           {SECTIONS.map((section) => {
             const Icon = section.icon;
@@ -70,7 +69,6 @@ export function SettingsPage() {
           })}
         </nav>
 
-        {/* Right: selected section */}
         <div className="min-w-0 flex-1">
           <Card>
             <CardHeader>

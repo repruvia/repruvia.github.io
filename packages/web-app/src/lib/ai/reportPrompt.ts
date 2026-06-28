@@ -35,11 +35,7 @@ const SYSTEM_PROMPT = [
   "  Keep Markdown code formatting: wrap URL paths and element/tag names in backticks, e.g. Clicked \"Submit\" `button` on `/checkout`.",
 ].join("\n");
 
-/**
- * Safety net so step phrasing always keeps highlighted paths even if the model
- * drops the backticks: wrap bare URL paths (e.g. `/checkout`) in code, unless
- * they're already inside a backtick span.
- */
+/** Wrap bare URL paths in code unless already inside a backtick span (model may drop backticks). */
 export function formatStepMarkdown(text: string): string {
   return text.replace(
     /(`[^`]*`)|((?<![A-Za-z0-9])\/[A-Za-z0-9\-_./]+)/g,
@@ -149,11 +145,7 @@ export function buildFieldRefineMessages(
   ];
 }
 
-/**
- * Parse the model's JSON output tolerantly. Returns a partial result; callers
- * apply only the fields that are present and valid, so a flaky field never
- * blocks the rest.
- */
+/** Tolerantly parse the model's JSON; returns only present+valid fields so one flaky field doesn't block the rest. */
 export function parseAnalysis(raw: string): Partial<AnalysisResult> {
   let json = raw.trim();
   if (!json.startsWith("{")) {

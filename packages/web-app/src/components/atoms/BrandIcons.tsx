@@ -1,6 +1,6 @@
 import type { SVGProps } from "react";
 
-/** Official brand glyphs (paths from simple-icons). Fill follows `currentColor`. */
+/** Brand glyphs (paths from simple-icons). Fill follows `currentColor`. */
 
 export function LinearIcon(props: SVGProps<SVGSVGElement>) {
   return (

@@ -62,8 +62,8 @@ export class JiraProvider implements TicketProvider {
       },
     });
 
-    // Upload screenshots, capturing each attachment id so it can be embedded
-    // inline. Best-effort: a failed upload just won't appear inline.
+    // Upload screenshots, capturing each attachment id for inline embedding.
+    // Best-effort: a failed upload just won't appear inline.
     const idByName = new Map<string, string>();
     let done = 0;
     for (const attachment of attachments) {
@@ -77,8 +77,8 @@ export class JiraProvider implements TicketProvider {
       onProgress?.(done / (attachments.length + 1));
     }
 
-    // Re-render the description with the uploaded images embedded inline as ADF
-    // media nodes. If this fails, the attachments still show in the panel.
+    // Re-render the description with the uploaded images inline as ADF media
+    // nodes. If this fails, the attachments still show in the panel.
     if (idByName.size > 0) {
       try {
         const body = exportReportToMarkdown(report, {
@@ -92,8 +92,7 @@ export class JiraProvider implements TicketProvider {
         const description = markdownToAdf(body, (path) => {
           const id = idByName.get(path);
           // Jira ADF media for an issue attachment needs `collection` present
-          // (empty string for issue-attached files); without it the node is
-          // invalid and the image won't render inline.
+          // (empty string for issue-attached files); without it the image won't render inline.
           return id ? { id, collection: "" } : null;
         });
         await this.api("PUT", `/rest/api/3/issue/${created.id}`, { fields: { description } });

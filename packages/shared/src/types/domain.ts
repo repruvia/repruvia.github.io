@@ -1,9 +1,6 @@
 /**
- * Core Repruvia domain model.
- *
- * These types are the single source of truth shared by the extension (which
- * produces them) and the web app (which consumes and edits them). They contain
- * no DOM- or `chrome.*`-specific concerns so both runtimes can depend on them.
+ * Core domain model: the single source of truth shared by the extension
+ * (producer) and web app (consumer/editor). No DOM/`chrome.*` concerns.
  */
 
 export type DomEventType = "click" | "input" | "change" | "navigate";
@@ -102,11 +99,7 @@ export interface Environment {
   recordingStartTime: string;
 }
 
-/**
- * The full captured session. The video is stored separately (as a binary blob)
- * and referenced by `id`, so this object stays JSON-serializable and small
- * enough to pass over messaging channels.
- */
+/** The full captured session — JSON-serializable for the messaging channels. */
 export interface RepruviaSession {
   id: string;
   startedAt: number;
@@ -131,6 +124,36 @@ export interface SessionSummary {
   stepCount: number;
   consoleErrorCount: number;
   networkFailureCount: number;
+}
+
+/**
+ * A region screenshot captured with the "snip" tool. Like a session, this is the
+ * immutable artifact the extension produces; the tester's annotations + title /
+ * description live in the web app's own storage, keyed by this `id`.
+ */
+export interface Snapshot {
+  id: string;
+  createdAt: number;
+  /** URL of the page the region was captured on. */
+  tabUrl: string;
+  /** base64 PNG data URL of the cropped region. */
+  image: string;
+  /** Cropped image dimensions in device pixels. */
+  width: number;
+  height: number;
+}
+
+/**
+ * Lightweight snapshot descriptor for list views. Excludes the (potentially
+ * large) base64 image so the library doesn't transfer it over the extension
+ * messaging channel — the full snapshot is fetched on open.
+ */
+export interface SnapshotSummary {
+  id: string;
+  createdAt: number;
+  tabUrl: string;
+  width: number;
+  height: number;
 }
 
 /** Tester-authored, presentation-level report metadata layered over a session. */

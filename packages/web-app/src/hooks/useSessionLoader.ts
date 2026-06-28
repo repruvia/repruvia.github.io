@@ -16,11 +16,7 @@ export function useSessionId(): string | null {
   return params.get(SESSION_QUERY_PARAM);
 }
 
-/**
- * Side-effecting hook: loads the session identified by `sessionId` from the
- * extension into the store. Components read the result from the store; this hook
- * owns the async/effect concerns.
- */
+/** Loads the session identified by `sessionId` from the extension into the store. */
 export function useSessionLoader(sessionId: string | null): void {
   const beginLoad = useReportStore((s) => s.beginLoad);
   const setSession = useReportStore((s) => s.setSession);

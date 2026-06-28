@@ -3,7 +3,7 @@
   "version": "1.0.1",
   "private": true,
   "type": "module",
-  "description": "Repruvia Chrome MV3 capture engine.",
+  "description": "Record a bug or snip a screenshot, mark it up, and turn it into a clear, ready-to-share bug report for Linear or Jira.",
   "license": "MIT",
   "scripts": {
     "dev": "vite build --watch --mode development",

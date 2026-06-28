@@ -26,14 +26,10 @@ interface SubmitDialogProps {
   providerId: ProviderId | null;
   report: Report | null;
   onClose: () => void;
-  /** Called once an issue is successfully created, so the caller can persist it. */
   onCreated?: (ticket: { provider: ProviderId; identifier: string; url: string }) => void;
 }
 
-/**
- * Drives the connect → pick container → submit flow for a chosen provider.
- * Pure UI over `useTicketSubmission`; it knows nothing about Linear vs Jira.
- */
+/** Drives connect → pick container → submit. Pure UI over `useTicketSubmission`; knows nothing about Linear vs Jira. */
 export function SubmitDialog({ providerId, report, onClose, onCreated }: SubmitDialogProps) {
   const { state, providers, connect, submit, reset } = useTicketSubmission(report);
   const [containerId, setContainerId] = useState<string>("");

@@ -16,7 +16,6 @@ function esc(value: string): string {
     .replace(/"/g, "&quot;");
 }
 
-/** Builds a self-contained, printable HTML document for the report. */
 function buildReportHtml(report: Report): string {
   const { session, meta } = report;
   const reportedBy = loadSettings().reporterName || "";
@@ -109,7 +108,7 @@ function buildReportHtml(report: Report): string {
 </html>`;
 }
 
-/** Opens a print window with the report so the browser can save it as a PDF. */
+/** Opens a print window so the browser can save the report as a PDF. */
 export function printReportAsPdf(report: Report): void {
   const win = window.open("", "_blank");
   if (!win) {

@@ -10,6 +10,7 @@ describe("isProxyFetchAllowed", () => {
       "https://api.anthropic.com/v1/messages",
       "https://generativelanguage.googleapis.com/v1beta/models/x:generateContent",
       "https://api.x.ai/v1/chat/completions",
+      "https://api.groq.com/openai/v1/chat/completions",
     ]) {
       expect(isProxyFetchAllowed(url)).toBe(true);
     }

@@ -8,17 +8,31 @@ import { ThemeProvider } from "@/lib/theme";
 import { HomePage } from "@/pages/HomePage";
 import { SettingsPage } from "@/pages/SettingsPage";
 import { useSessionId } from "@/hooks/useSessionLoader";
+import { useSnapshotId } from "@/hooks/useSnapshotLoader";
 
-// Lazy-loaded: the report builder pulls in the rich-text editor (TipTap) and
-// markdown rendering, which the landing page doesn't need. Keeps the initial
-// bundle light; this code loads only when a recording is opened.
+// Lazy-loaded: keeps TipTap + markdown rendering out of the initial bundle (loads when a recording opens).
 const ReportBuilderPage = lazy(() =>
   import("@/pages/ReportBuilderPage").then((m) => ({ default: m.ReportBuilderPage })),
 );
 
-/** Root route: the report builder when a `?session=` is present, else the landing page. */
+// Lazy-loaded: keeps Konva (canvas) out of the initial bundle (loads when a snapshot opens).
+const AnnotationPage = lazy(() =>
+  import("@/pages/AnnotationPage").then((m) => ({ default: m.AnnotationPage })),
+);
+
+// Root route: annotation editor for `?snapshot=`, report builder for `?session=`, else landing.
+// All three share `/`, distinguished only by query string (read via router hooks) — see CLAUDE.md routing note.
 function RootRoute() {
-  if (!useSessionId()) return <HomePage />;
+  const snapshotId = useSnapshotId();
+  const sessionId = useSessionId();
+  if (snapshotId) {
+    return (
+      <Suspense fallback={<ReportBuilderSkeleton />}>
+        <AnnotationPage />
+      </Suspense>
+    );
+  }
+  if (!sessionId) return <HomePage />;
   return (
     <Suspense fallback={<ReportBuilderSkeleton />}>
       <ReportBuilderPage />

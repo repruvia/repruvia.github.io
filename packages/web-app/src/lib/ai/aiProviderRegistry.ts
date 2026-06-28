@@ -1,6 +1,5 @@
 import { isAiConfigured, type AppSettings } from "@/lib/settings";
 import type { LlmEngine } from "./types";
-import { webLlmEngine } from "./webLlmEngine";
 import { OpenAiCompatibleEngine } from "./providers/openaiProvider";
 import { AnthropicEngine } from "./providers/anthropicProvider";
 import { GeminiEngine } from "./providers/geminiProvider";
@@ -10,8 +9,6 @@ export function buildActiveEngine(settings: AppSettings): LlmEngine | null {
   if (!isAiConfigured(settings)) return null;
   const { activeProvider, providers } = settings.ai;
   switch (activeProvider) {
-    case "webllm":
-      return webLlmEngine; // model is read from settings inside the engine
     case "openai":
       return new OpenAiCompatibleEngine({
         baseUrl: "https://api.openai.com/v1",
@@ -23,6 +20,12 @@ export function buildActiveEngine(settings: AppSettings): LlmEngine | null {
         baseUrl: "https://api.x.ai/v1",
         apiKey: providers.grok.apiKey ?? "",
         model: providers.grok.model,
+      });
+    case "groq":
+      return new OpenAiCompatibleEngine({
+        baseUrl: "https://api.groq.com/openai/v1",
+        apiKey: providers.groq.apiKey ?? "",
+        model: providers.groq.model,
       });
     case "anthropic":
       return new AnthropicEngine({
@@ -41,8 +44,6 @@ export function buildActiveEngine(settings: AppSettings): LlmEngine | null {
 
 /** Whether the active provider can accept images (gates sending screenshots). */
 export function isVisionProvider(settings: AppSettings): boolean {
-  const id = settings.ai.activeProvider;
-  if (!id) return false;
-  if (id === "webllm") return /vision/i.test(settings.ai.providers.webllm.model);
-  return true; // the cloud defaults are all vision-capable
+  // All supported providers' listed models accept image input.
+  return settings.ai.activeProvider !== null;
 }

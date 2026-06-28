@@ -1,7 +1,6 @@
 import type { ReportEditor } from "@/hooks/useReportEditor";
 import { StepCard } from "./StepCard";
 
-/** Renders the ordered list of steps, wiring each card to the editor actions. */
 export function StepList({ editor }: { editor: ReportEditor }) {
   const { session, consoleByStep, networkByStep, actions } = editor;
   if (!session) return null;

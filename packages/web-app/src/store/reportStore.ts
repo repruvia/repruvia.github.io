@@ -21,18 +21,15 @@ interface ReportState {
   session: RepruviaSession | null;
   meta: ReportMeta;
 
-  // lifecycle
   beginLoad: () => void;
   setSession: (session: RepruviaSession, persisted?: PersistedReport | null) => void;
   setError: (message: string) => void;
   reset: () => void;
 
-  // meta edits
   setTitle: (title: string) => void;
   setDescription: (description: string) => void;
   setSeverity: (severity: Severity) => void;
 
-  // step edits
   editStep: (stepId: string, description: string) => void;
   deleteStep: (stepId: string) => void;
   moveStep: (stepId: string, direction: "up" | "down") => void;
@@ -41,7 +38,7 @@ interface ReportState {
 const DEFAULT_META: ReportMeta = { title: "", description: "", severity: "medium" };
 
 function deriveTitle(session: RepruviaSession): string {
-  // Sensible default: first navigation/click path keeps the tester oriented.
+  // Default title from the first step's path, to orient the tester.
   const firstPath = session.steps[0]?.event.pathname ?? new URL(session.tabUrl).pathname;
   return `Bug on ${firstPath}`;
 }
@@ -63,8 +60,7 @@ export const useReportStore = create<ReportState>((set) => ({
   beginLoad: () => set({ status: "loading", error: null }),
   setSession: (session, persisted) => {
     if (persisted) {
-      // Restore the tester's saved edits (incl. AI refinements) over the
-      // freshly-captured session.
+      // Restore the tester's saved edits over the freshly-captured session.
       const { steps, meta } = applyPersistedReport(session, persisted);
       set({
         status: "ready",
@@ -119,8 +115,8 @@ export const useReportStore = create<ReportState>((set) => ({
     ),
 }));
 
-// Persist the editable report layer to IndexedDB whenever it changes (debounced
-// so rapid typing / an AI refine that touches many fields writes once).
+// Persist the editable layer to IndexedDB on change, debounced so rapid typing
+// or a multi-field AI refine writes once.
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 useReportStore.subscribe((state, prev) => {
   if (!state.session) return;

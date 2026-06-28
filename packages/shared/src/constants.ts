@@ -1,14 +1,18 @@
 /** Names of the extension's IndexedDB database and object stores. */
 export const DB = {
   NAME: "repruvia_db",
-  VERSION: 1,
+  VERSION: 2,
   STORES: {
     SESSIONS: "sessions",
+    SNAPSHOTS: "snapshots",
   },
 } as const;
 
 /** Sessions older than this are pruned on extension startup. */
 export const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+/** Snapshots older than this are pruned on extension startup. */
+export const SNAPSHOT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 /** Debounce window for screenshot capture after an interaction (TRD §3.2). */
 export const SCREENSHOT_DEBOUNCE_MS = 150;
@@ -20,8 +24,11 @@ export const LIMITS = {
   STEPS_BATCH_SIZE: 5,
 } as const;
 
-/** Query param used when the extension opens the web app. */
+/** Query param used when the extension opens the web app on a recording. */
 export const SESSION_QUERY_PARAM = "session";
+
+/** Query param used when the extension opens the web app on a snip annotation. */
+export const SNAPSHOT_QUERY_PARAM = "snapshot";
 
 /** Origins the extension will respond to over `onMessageExternal` (TRD §6, §12). */
 export const ALLOWED_WEB_APP_ORIGINS = [
@@ -43,6 +50,7 @@ export const PROXY_FETCH_ALLOWED_HOST_SUFFIXES = [
   "anthropic.com", // Anthropic API
   "generativelanguage.googleapis.com", // Google Gemini (only this host, not all of googleapis.com)
   "x.ai", // xAI Grok (api.x.ai)
+  "groq.com", // Groq (api.groq.com, OpenAI-compatible)
 ] as const;
 
 /** True when `url`'s host is covered by the proxy allowlist. */

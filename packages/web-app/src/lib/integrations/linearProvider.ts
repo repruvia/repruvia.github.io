@@ -57,8 +57,7 @@ export class LinearProvider implements TicketProvider {
       try {
         assetByName.set(attachment.filename, await this.uploadFile(attachment));
       } catch (err) {
-        // Best-effort: skip this image, but surface why so a systematic upload
-        // failure (CORS, bad signed URL, etc.) is diagnosable instead of silent.
+        // Surface why so a systematic failure (CORS, bad signed URL) is diagnosable, not silent.
         console.error(`[repruvia] Linear screenshot upload failed for ${attachment.filename}:`, err);
       }
       uploaded += 1;
@@ -70,8 +69,7 @@ export class LinearProvider implements TicketProvider {
       );
     }
 
-    // Re-render the body with the uploaded URLs inline. Fall back to the
-    // pre-rendered (image-less) body when nothing uploaded.
+    // Re-render with uploaded URLs inline; fall back to the image-less body if nothing uploaded.
     const description = assetByName.size
       ? exportReportToMarkdown(report, {
           screenshots: "link",
@@ -132,8 +130,8 @@ export class LinearProvider implements TicketProvider {
       throw new TicketProviderError(this.id, "Linear fileUpload mutation was rejected.");
     }
     const { uploadUrl, assetUrl, headers } = upload.fileUpload.uploadFile;
-    // The PUT to Linear's storage is CORS-blocked from a web-app origin, so it
-    // runs through the extension service worker (CORS-free via host_permissions).
+    // PUT to Linear storage is CORS-blocked from a web-app origin, so route it
+    // through the extension service worker (CORS-free via host_permissions).
     let res: { status: number; bodyText: string };
     try {
       res = await extensionBridge.proxyFetch({

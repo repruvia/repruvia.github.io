@@ -2,11 +2,10 @@ import type { RepruviaSession, ReportMeta, Step } from "@repruvia/shared";
 import { idbDelete, idbGet, idbGetAll, idbPut, STORES } from "./db";
 
 /**
- * Local persistence of the *editable* report layer (title, severity,
- * description, and per-step edits / order) in the web app's IndexedDB. The
- * extension's captured session is immutable; the tester's edits — including AI
- * refinements — live here, keyed by session id, so they survive reloads.
- * Screenshots are NOT stored (re-fetched from the extension on load).
+ * Persists the editable report layer (title, severity, description, per-step
+ * edits/order) in IndexedDB, keyed by session id. The captured session is
+ * immutable; only the tester's edits live here. Screenshots are NOT stored —
+ * they are re-fetched from the extension on load.
  */
 
 interface PersistedStep {
@@ -33,7 +32,6 @@ export async function loadPersistedReport(sessionId: string): Promise<PersistedR
   }
 }
 
-/** Load the saved meta for every persisted report, keyed by session id. */
 export async function loadAllPersistedMeta(): Promise<Map<string, ReportMeta>> {
   try {
     const records = await idbGetAll<StoredRecord>(STORES.REPORTS);
@@ -69,9 +67,8 @@ export async function deletePersistedReport(sessionId: string): Promise<void> {
 }
 
 /**
- * Apply a persisted edit layer onto a freshly-loaded session, preserving the
- * saved order, deletions, and per-step edits. Falls back to the raw session if
- * nothing maps (e.g. corrupt/stale data).
+ * Apply a persisted edit layer onto a freshly-loaded session, preserving saved
+ * order/deletions/edits. Falls back to the raw session if nothing maps (corrupt/stale).
  */
 export function applyPersistedReport(
   session: RepruviaSession,

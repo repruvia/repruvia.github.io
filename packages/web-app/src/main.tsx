@@ -14,6 +14,5 @@ const render = () =>
     </StrictMode>,
   );
 
-// Fill the settings cache from IndexedDB before first render so synchronous
-// `loadSettings()` reads are correct; render with defaults if it fails.
+// Fill the settings cache from IndexedDB before first render so synchronous `loadSettings()` reads are correct.
 hydrateSettings().finally(render);

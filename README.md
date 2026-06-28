@@ -2,7 +2,7 @@
 
 # 🐛 Repruvia
 
-**Turn a recording session into a structured, ready-to-submit bug report — no backend, no AI fees, all in the browser.**
+**Record a bug or snip a screenshot, mark it up, and turn it into a clear, ready-to-submit bug report for Linear or Jira — all in your browser.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![CI](https://github.com/repruvia/repruvia.github.io/actions/workflows/ci.yml/badge.svg)](https://github.com/repruvia/repruvia.github.io/actions/workflows/ci.yml)
@@ -11,9 +11,14 @@
 
 ---
 
-Repruvia is an open-source **Chrome Extension (MV3) + React web app**. A QA tester clicks _Start Recording_, reproduces a bug, and Repruvia automatically captures every interaction — click, input, navigation — with a screenshot per step, console errors, network failures, and React component context. It then assembles a structured report you can push straight to **Linear**, **Jira**, or export as Markdown.
+Repruvia is an open-source **Chrome extension + web app** that helps you file better bug reports in two ways:
 
-Everything runs client-side. No server. No storage costs. No telemetry.
+- **Record a session** — click _Start Recording_, reproduce the bug, and Repruvia captures every click, input, and navigation as a numbered step with a screenshot, plus any console errors and network failures.
+- **Snip & annotate** — grab any region of the screen, then draw arrows, boxes, and text on it to point out exactly what's wrong.
+
+Either way, you add a title and description (or let AI draft them from the image), then send the result straight to **Linear** or **Jira**, or export it as Markdown.
+
+Everything runs in your browser. No server, no storage costs, no telemetry — your data only leaves the browser when you submit a ticket. AI drafting is optional and uses your own provider API key.
 
 ## Why Repruvia?
 

@@ -8,21 +8,14 @@ import { cn } from "@/lib/utils";
 
 interface AiRefineButtonProps {
   field: RefineField;
-  /** Current text to refine. */
   text: string;
-  /** Optional screenshot (data URL) sent with a step refine to vision providers. */
   screenshot?: string | null;
-  /** Apply the refined text. */
   onResult: (next: string) => void;
   label?: string;
   className?: string;
 }
 
-/**
- * Inline "refine with AI" icon for a single field. Renders nothing when on-device
- * AI is unavailable; shows a spinner while the model runs. The actual model
- * loading/inference lives in the `AiRefineProvider`.
- */
+/** Inline "refine with AI" icon for a field. Renders nothing when on-device AI is unavailable; inference lives in `AiRefineProvider`. */
 export function AiRefineButton({ field, text, screenshot, onResult, label, className }: AiRefineButtonProps) {
   const { available, refine } = useAiRefine();
   const [pending, setPending] = useState(false);

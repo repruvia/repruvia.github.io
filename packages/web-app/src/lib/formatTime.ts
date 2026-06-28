@@ -1,4 +1,3 @@
-/** Human-friendly relative time, e.g. "just now", "5 min ago", "3 days ago". */
 export function timeAgo(timestamp: number, now = Date.now()): string {
   const seconds = Math.round((now - timestamp) / 1000);
   if (seconds < 60) return "just now";
@@ -11,7 +10,6 @@ export function timeAgo(timestamp: number, now = Date.now()): string {
   return new Date(timestamp).toLocaleDateString();
 }
 
-/** Short host + path label for a recorded URL. */
 export function describeUrl(url: string): string {
   try {
     const u = new URL(url);

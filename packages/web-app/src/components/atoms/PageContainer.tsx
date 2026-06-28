@@ -1,10 +1,7 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-/**
- * Shared page width + horizontal padding so every page and the header align to
- * the same column. Pass layout (flex/gap/py) via `className`.
- */
+/** Shared page width + padding so every page and the header align to the same column. */
 export function PageContainer({
   className,
   children,

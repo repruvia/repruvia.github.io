@@ -43,18 +43,14 @@ export interface GenerateOptions {
   /** Request a single JSON object (non-streamed) via the model's JSON mode. */
   json?: boolean;
   /**
-   * JSON Schema to grammar-constrain the output. Required when `json` is set:
-   * WebLLM's JSON mode compiles a schema natively, and omitting it makes the
-   * binding pass `undefined` to a C++ string arg, which throws in the worker.
+   * JSON Schema to grammar-constrain output. Required when `json` is set: WebLLM
+   * compiles it natively, and omitting it passes `undefined` to a C++ string arg
+   * (throws in the worker).
    */
   schema?: object;
 }
 
-/**
- * Abstraction over an LLM backend. The UI depends only on this interface, so the
- * in-browser WebLLM engine can later be swapped or joined by other backends
- * (e.g. a bring-your-own-key cloud model) without touching components/hooks.
- */
+/** LLM backend abstraction; the UI depends only on this so backends can be swapped without touching components/hooks. */
 export interface LlmEngine {
   /** Whether this engine can run in the current environment. */
   isSupported(): Promise<boolean>;

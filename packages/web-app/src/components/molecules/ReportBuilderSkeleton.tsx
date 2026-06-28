@@ -6,10 +6,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 export function ReportBuilderSkeleton() {
   return (
     <PageContainer className="flex flex-col gap-4 py-6">
-      {/* AI assist card */}
       <Skeleton className="h-20 w-full rounded-xl" />
 
-      {/* Report header */}
       <Card>
         <CardContent className="flex flex-col gap-4">
           <Skeleton className="h-8 w-2/3" />
@@ -18,14 +16,12 @@ export function ReportBuilderSkeleton() {
         </CardContent>
       </Card>
 
-      {/* Tabs bar */}
       <div className="flex gap-2">
         <Skeleton className="h-9 w-24 rounded-lg" />
         <Skeleton className="h-9 w-32 rounded-lg" />
         <Skeleton className="h-9 w-32 rounded-lg" />
       </div>
 
-      {/* Step cards */}
       {Array.from({ length: 3 }).map((_, i) => (
         <Card key={i}>
           <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-stretch">

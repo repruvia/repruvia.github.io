@@ -2,23 +2,28 @@ import {
   ALLOWED_WEB_APP_ORIGINS,
   isProxyFetchAllowed,
   SESSION_TTL_MS,
+  SNAPSHOT_TTL_MS,
   toSessionSummary,
+  toSnapshotSummary,
   type CaptureMessage,
   type ControlMessage,
   type ExternalRequest,
   type ExternalResponse,
+  type SnapshotMessage,
 } from "@repruvia/shared";
-import { IndexedDbSessionRepository } from "../storage/indexedDb.js";
+import { IndexedDbSessionRepository, IndexedDbSnapshotRepository } from "../storage/indexedDb.js";
 import { RecordingController } from "./recordingController.js";
+import { SnapshotController } from "./snapshotController.js";
 
 const sessions = new IndexedDbSessionRepository();
 const controller = new RecordingController(sessions);
+const snapshots = new IndexedDbSnapshotRepository();
+const snapshotController = new SnapshotController(snapshots);
 
-// ---- Internal messages: popup control + content capture ----
+// Internal messages: popup control + content capture + snip.
+type InternalMessage = ControlMessage | CaptureMessage | SnapshotMessage;
 
-type InternalMessage = ControlMessage | CaptureMessage;
-
-chrome.runtime.onMessage.addListener((message: InternalMessage, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message: InternalMessage, sender, sendResponse) => {
   switch (message.type) {
     case "START_RECORDING":
       chrome.tabs.query({ active: true, currentWindow: true }).then(([tab]) => {
@@ -35,6 +40,18 @@ chrome.runtime.onMessage.addListener((message: InternalMessage, _sender, sendRes
       sendResponse(controller.getState());
       return false;
 
+    case "START_SNAPSHOT":
+      chrome.tabs.query({ active: true, currentWindow: true }).then(([tab]) => {
+        if (tab) snapshotController.begin(tab).then(sendResponse);
+        else sendResponse({ ok: false, error: "No active tab." });
+      });
+      return true;
+
+    case "CAPTURE_REGION":
+    case "CANCEL_SNAPSHOT":
+      void snapshotController.handle(message, sender);
+      return false;
+
     case "CAPTURE_EVENT":
     case "CAPTURE_CONSOLE":
     case "CAPTURE_NETWORK":
@@ -47,8 +64,7 @@ chrome.runtime.onMessage.addListener((message: InternalMessage, _sender, sendRes
   }
 });
 
-// ---- External messages: the Repruvia web app requests session data ----
-
+// External messages: the web app requests session/snapshot data.
 function isAllowedOrigin(origin: string | undefined): boolean {
   return !!origin && (ALLOWED_WEB_APP_ORIGINS as readonly string[]).includes(origin);
 }
@@ -84,6 +100,29 @@ chrome.runtime.onMessageExternal.addListener(
           .catch((e) => sendResponse({ ok: false, error: String(e) }));
         return true;
 
+      case "GET_SNAPSHOT":
+        snapshots
+          .get(request.snapshotId)
+          .then((snapshot) => sendResponse({ ok: true, type: "GET_SNAPSHOT", snapshot }))
+          .catch((e) => sendResponse({ ok: false, error: String(e) }));
+        return true;
+
+      case "LIST_SNAPSHOTS":
+        snapshots
+          .list()
+          .then((list) =>
+            sendResponse({ ok: true, type: "LIST_SNAPSHOTS", snapshots: list.map(toSnapshotSummary) }),
+          )
+          .catch((e) => sendResponse({ ok: false, error: String(e) }));
+        return true;
+
+      case "DELETE_SNAPSHOT":
+        snapshots
+          .delete(request.snapshotId)
+          .then(() => sendResponse({ ok: true, type: "DELETE_SNAPSHOT" }))
+          .catch((e) => sendResponse({ ok: false, error: String(e) }));
+        return true;
+
       case "PROXY_FETCH":
         proxyFetch(request)
           .then(sendResponse)
@@ -106,7 +145,16 @@ async function proxyFetch(
   request: Extract<ExternalRequest, { type: "PROXY_FETCH" }>,
 ): Promise<ExternalResponse> {
   if (!isProxyFetchAllowed(request.url)) {
-    return { ok: false, error: "URL not allowed" };
+    let host = request.url;
+    try {
+      host = new URL(request.url).hostname;
+    } catch {
+      // keep the raw url in the message
+    }
+    return {
+      ok: false,
+      error: `Host not allowed by the extension proxy: ${host}. Reload the Repruvia extension if you just updated it.`,
+    };
   }
   const body = request.bodyBase64 ? new Blob([base64ToBytes(request.bodyBase64)]) : undefined;
   const res = await fetch(request.url, {
@@ -130,10 +178,10 @@ function base64ToBytes(base64: string): Uint8Array<ArrayBuffer> {
   return bytes;
 }
 
-// ---- Maintenance: prune stale sessions on startup/install ----
-
+// Prune stale sessions/snapshots on startup/install.
 function prune(): void {
   void sessions.pruneOlderThan(SESSION_TTL_MS);
+  void snapshots.pruneOlderThan(SNAPSHOT_TTL_MS);
 }
 
 chrome.runtime.onInstalled.addListener(prune);

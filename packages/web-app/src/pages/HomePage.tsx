@@ -8,9 +8,10 @@ import {
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { PageContainer } from "@/components/atoms/PageContainer";
-import { RecordingsLibrary } from "@/components/organisms/RecordingsLibrary";
+import { LibraryTabs } from "@/components/organisms/LibraryTabs";
 import { RecordingsSkeleton } from "@/components/molecules/RecordingsSkeleton";
 import { useRecordings } from "@/hooks/useRecordings";
+import { useSnapshots } from "@/hooks/useSnapshots";
 import { CHROME_WEBSTORE_URL } from "@/lib/links";
 
 const FEATURES = [
@@ -34,14 +35,15 @@ const FEATURES = [
   },
   {
     icon: Sparkles,
-    title: "On-device AI",
-    body: "Draft the title, severity, description, and every step with a model that runs entirely in your browser — no API key, no server.",
+    title: "AI-assisted drafting",
+    body: "Draft the title, severity, description, and every step — bring your own key for OpenAI, Anthropic, Gemini, Groq, or xAI.",
     span: "md:col-span-2",
   },
 ];
 
 export function HomePage() {
   const { status, recordings, error, remove } = useRecordings();
+  const { snapshots, remove: removeSnapshot } = useSnapshots();
   const installed = status === "ready";
 
   return (
@@ -89,7 +91,12 @@ export function HomePage() {
 
       {installed && (
         <div className="animate-in fade-in slide-in-from-bottom-3 duration-700">
-          <RecordingsLibrary recordings={recordings} onDelete={remove} />
+          <LibraryTabs
+            recordings={recordings}
+            onDeleteRecording={remove}
+            snapshots={snapshots}
+            onDeleteSnapshot={removeSnapshot}
+          />
         </div>
       )}
 
