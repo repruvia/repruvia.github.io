@@ -1,6 +1,6 @@
 {
   "name": "@repruvia/extension",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "private": true,
   "type": "module",
   "description": "Record a bug or snip a screenshot, mark it up, and turn it into a clear, ready-to-share bug report for Linear or Jira.",
