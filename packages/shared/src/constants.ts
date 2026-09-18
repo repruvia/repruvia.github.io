@@ -22,6 +22,13 @@ export const LIMITS = {
   TEXT_CONTENT_MAX: 80,
   REACT_PROPS_MAX: 10,
   STEPS_BATCH_SIZE: 5,
+  /** Console messages longer than this are truncated (huge JSON dumps, stack blobs). */
+  CONSOLE_MESSAGE_MAX: 2000,
+  /** Per-session caps so a page spamming errors can't grow a session without bound. */
+  CONSOLE_ENTRIES_MAX: 500,
+  NETWORK_ENTRIES_MAX: 500,
+  /** Identical network failures within this window are one failure seen by two sources. */
+  NETWORK_DEDUPE_WINDOW_MS: 1500,
 } as const;
 
 /** Query param used when the extension opens the web app on a recording. */

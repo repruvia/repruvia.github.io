@@ -1,13 +1,21 @@
-import type { CaptureMessage, PageMessage, TabCommand } from "@repruvia/shared";
+import type {
+  CaptureMessage,
+  PageMessage,
+  RecordingStatePayload,
+  TabCommand,
+  TabCommandAck,
+} from "@repruvia/shared";
 import { DomEventObserver } from "./dom/domEventObserver.js";
-import { beginSnapshotSelection } from "./snapshot/selectionOverlay.js";
+import { beginSnapshotSelection, showSnapshotError } from "./snapshot/selectionOverlay.js";
 
 /**
  * ISOLATED-world content script. Responsibilities:
  *  1. Capture DOM interactions (only while a recording is active) and forward
  *     them to the service worker.
  *  2. Relay page-context signals (console/network) posted by the MAIN-world
- *     in-page script, which cannot talk to `chrome.runtime` directly.
+ *     in-page script, which cannot talk to `chrome.runtime` directly — again
+ *     only while recording, so errors on every other open tab don't keep waking
+ *     the service worker.
  *
  * The service worker tells us when to start/stop via `TOGGLE_CAPTURE`.
  */
@@ -19,19 +27,40 @@ function send(message: CaptureMessage): void {
 
 const observer = new DomEventObserver((event) => send({ type: "CAPTURE_EVENT", event }));
 
-chrome.runtime.onMessage.addListener((message: TabCommand) => {
-  if (message?.type === "TOGGLE_CAPTURE") {
-    if (message.active) observer.start();
-    else observer.stop();
-  } else if (message?.type === "BEGIN_SNAPSHOT") {
-    beginSnapshotSelection();
-  }
-});
+chrome.runtime.onMessage.addListener(
+  (message: TabCommand, _sender, sendResponse: (ack: TabCommandAck) => void) => {
+    // Always acknowledge: the service worker treats a rejected send as "no
+    // content script here", and an unanswered message can reject too.
+    switch (message?.type) {
+      case "TOGGLE_CAPTURE":
+        if (message.active) {
+          observer.start();
+          sendResponse({ ok: true });
+        } else {
+          // Hand back the debounced typing step so it's recorded before the
+          // session is finalized (a separate message could arrive too late).
+          sendResponse({ ok: true, pendingEvent: observer.stop() ?? undefined });
+        }
+        return false;
+      case "BEGIN_SNAPSHOT":
+        beginSnapshotSelection();
+        sendResponse({ ok: true });
+        return false;
+      case "SNAPSHOT_FAILED":
+        showSnapshotError(message.error);
+        sendResponse({ ok: true });
+        return false;
+      default:
+        return false;
+    }
+  },
+);
 
 // Relay MAIN-world page signals to the service worker.
 window.addEventListener("message", (event: MessageEvent<PageMessage>) => {
   const data = event.data;
   if (event.source !== window || data?.source !== "repruvia") return;
+  if (!observer.isActive) return;
 
   if (data.kind === "console") {
     send({
@@ -53,10 +82,12 @@ window.addEventListener("message", (event: MessageEvent<PageMessage>) => {
   }
 });
 
-// Ask the SW whether a recording is already in progress (e.g. after SPA nav).
+// A full page load inside a recorded tab (link click, reload, form post) gets
+// a fresh content script: ask whether this tab is being recorded and, if so,
+// resume capture and log the landing page as a navigation step.
 chrome.runtime.sendMessage({ type: "GET_RECORDING_STATE" }).then(
-  (state?: { state: string }) => {
-    if (state?.state === "recording") observer.start();
+  (state?: RecordingStatePayload) => {
+    if (state?.state === "recording") observer.start({ announcePage: true });
   },
   () => {},
 );

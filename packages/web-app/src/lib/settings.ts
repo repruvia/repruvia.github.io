@@ -99,7 +99,10 @@ export function loadSettings(): AppSettings {
 /** Update the cache and persist to IndexedDB (fire-and-forget). */
 export function saveSettings(settings: AppSettings): void {
   cache = { ...settings };
-  void idbPut(STORES.SETTINGS, cache, SETTINGS_KEY);
+  idbPut(STORES.SETTINGS, cache, SETTINGS_KEY).catch((error: unknown) => {
+    // The in-memory cache still applies for this tab; it just won't survive a reload.
+    console.warn("[repruvia] Couldn't persist settings:", error);
+  });
 }
 
 /**

@@ -38,9 +38,18 @@ export class SnapshotController {
   /** Handle a region selection (or cancellation) from the overlay. */
   async handle(message: SnapshotMessage, sender: chrome.runtime.MessageSender): Promise<void> {
     if (message.type === "CANCEL_SNAPSHOT") return;
-    const windowId = sender.tab?.windowId;
-    if (windowId === undefined) return;
-    await this.capture(windowId, sender.tab?.url ?? "", message.rect, message.devicePixelRatio);
+    const tab = sender.tab;
+    if (tab?.id === undefined || tab.windowId === undefined) return;
+    try {
+      await this.capture(tab.windowId, tab.url ?? "", message.rect, message.devicePixelRatio);
+    } catch (error) {
+      console.warn("[Repruvia] Snip failed:", error);
+      const command: TabCommand = {
+        type: "SNAPSHOT_FAILED",
+        error: "Couldn't capture that region. Please try again.",
+      };
+      await chrome.tabs.sendMessage(tab.id, command).catch(() => {});
+    }
   }
 
   private async capture(
@@ -50,7 +59,7 @@ export class SnapshotController {
     devicePixelRatio: number,
   ): Promise<void> {
     const fullDataUrl = await chrome.tabs.captureVisibleTab(windowId, { format: "png" });
-    if (!fullDataUrl) return;
+    if (!fullDataUrl) throw new Error("captureVisibleTab returned no image");
 
     const image = await cropDataUrl(fullDataUrl, rect, devicePixelRatio);
 

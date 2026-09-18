@@ -19,6 +19,7 @@ import {
 } from "react-konva";
 import { uuid } from "@repruvia/shared";
 import type { AnnotationShape, AnnotationTool } from "@/lib/annotations/types";
+import { isTypingTarget } from "@/lib/keyboard";
 
 /** Imperative handle so the page can flatten the canvas to a PNG for export/AI. */
 export interface AnnotationCanvasHandle {
@@ -134,6 +135,10 @@ export const AnnotationCanvas = forwardRef<AnnotationCanvasHandle, AnnotationCan
     const [editingId, setEditingId] = useState<string | null>(null);
     const drawingId = useRef<string | null>(null);
     const startPoint = useRef<{ x: number; y: number } | null>(null);
+    // Latest shapes for handlers that outlive the render they were created in
+    // (the window-level pointerup that ends a drag released off-canvas).
+    const shapesRef = useRef(shapes);
+    shapesRef.current = shapes;
 
     // Attach the selection outline (Transformer) to the selected node and pick
     // the right anchors for its type (text = width-only; others = all corners).
@@ -158,8 +163,8 @@ export const AnnotationCanvas = forwardRef<AnnotationCanvasHandle, AnnotationCan
     useEffect(() => {
       const onKey = (e: KeyboardEvent) => {
         if (!selectedId || editingId) return;
-        const el = document.activeElement;
-        if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA")) return;
+        // Backspace in the description editor must delete text, not the shape.
+        if (isTypingTarget(e.target) || isTypingTarget(document.activeElement)) return;
         if (e.key === "Delete" || e.key === "Backspace") {
           e.preventDefault();
           onRemoveShape(selectedId);
@@ -218,6 +223,9 @@ export const AnnotationCanvas = forwardRef<AnnotationCanvasHandle, AnnotationCan
       }
       e.evt.preventDefault();
       const id = uuid();
+      // Releasing the button outside the stage never reaches its pointerup, which
+      // left the shape following the cursor; end the gesture from the window too.
+      if (tool !== "text") window.addEventListener("pointerup", onPointerUp, { once: true });
 
       if (tool === "pen") {
         onAddShape({ id, type: "pen", points: [pos.x, pos.y], color, strokeWidth });
@@ -247,6 +255,10 @@ export const AnnotationCanvas = forwardRef<AnnotationCanvasHandle, AnnotationCan
       if (!shape) return;
 
       if (shape.type === "pen") {
+        // Skip sub-pixel moves: they add points (and store updates) without changing the stroke.
+        const lastX = shape.points[shape.points.length - 2]!;
+        const lastY = shape.points[shape.points.length - 1]!;
+        if (Math.hypot(pos.x - lastX, pos.y - lastY) * scale < 1) return;
         onUpdateShape(id, { points: [...shape.points, pos.x, pos.y] });
       } else if (shape.type === "arrow" && startPoint.current) {
         const { x, y } = startPoint.current;
@@ -267,7 +279,7 @@ export const AnnotationCanvas = forwardRef<AnnotationCanvasHandle, AnnotationCan
       drawingId.current = null;
       startPoint.current = null;
       if (!id) return;
-      const shape = shapes.find((s) => s.id === id);
+      const shape = shapesRef.current.find((s) => s.id === id);
       if (!shape) return;
       // Drop a degenerate (click-with-no-drag) shape; otherwise it's committed.
       let degenerate = false;

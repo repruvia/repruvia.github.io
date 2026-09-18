@@ -12,6 +12,8 @@ import { useSessionId, useSessionLoader } from "@/hooks/useSessionLoader";
 import { useReportActions } from "@/hooks/useReportActions";
 import { useCreatedTicket } from "@/hooks/useCreatedTicket";
 import { AiRefineProvider } from "@/hooks/aiRefine";
+import { useFlushOnHide } from "@/hooks/useFlushOnHide";
+import { flushReportSave } from "@/store/reportStore";
 import type { ProviderId } from "@/lib/integrations/providerRegistry";
 
 export function ReportBuilderPage() {
@@ -29,6 +31,7 @@ export function ReportBuilderPage() {
   const reportActions = useReportActions(report);
   const { ticket, setTicket } = useCreatedTicket(sessionId);
   const [submitting, setSubmitting] = useState<ProviderId | null>(null);
+  useFlushOnHide(flushReportSave);
 
   if (!sessionId) {
     return (

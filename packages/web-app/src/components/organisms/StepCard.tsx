@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { resolveStepText, type ConsoleEntry, type NetworkFailure, type Step } from "@repruvia/shared";
 import { ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,12 +16,16 @@ interface StepCardProps {
   network: NetworkFailure[];
   isFirst: boolean;
   isLast: boolean;
-  onEdit: (description: string) => void;
-  onDelete: () => void;
-  onMove: (direction: "up" | "down") => void;
+  onEdit: (stepId: string, description: string) => void;
+  onDelete: (stepId: string) => void;
+  onMove: (stepId: string, direction: "up" | "down") => void;
 }
 
-export function StepCard({
+/**
+ * Memoized: callbacks take the step id so the list can pass stable store
+ * actions, and editing the report title doesn't re-render every step.
+ */
+export const StepCard = memo(function StepCard({
   step,
   console,
   network,
@@ -30,6 +35,9 @@ export function StepCard({
   onDelete,
   onMove,
 }: StepCardProps) {
+  const text = resolveStepText(step);
+  const edit = (description: string) => onEdit(step.id, description);
+
   return (
     <Card>
       <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-stretch">
@@ -46,17 +54,17 @@ export function StepCard({
               <StepNumber index={step.index} />
               <div className="min-w-0 flex-1">
                 <InlineEditable
-                  value={resolveStepText(step)}
+                  value={text}
                   ariaLabel={`Edit step ${step.index} description`}
-                  onCommit={onEdit}
+                  onCommit={edit}
                 />
               </div>
               <div className="flex shrink-0 gap-1">
                 <AiRefineButton
                   field="step"
-                  text={resolveStepText(step)}
+                  text={text}
                   screenshot={step.screenshot}
-                  onResult={onEdit}
+                  onResult={edit}
                   label={`Refine step ${step.index} with AI`}
                   className="size-9"
                 />
@@ -65,7 +73,7 @@ export function StepCard({
                   size="icon"
                   aria-label="Move step up"
                   disabled={isFirst}
-                  onClick={() => onMove("up")}
+                  onClick={() => onMove(step.id, "up")}
                 >
                   <ChevronUp />
                 </Button>
@@ -74,7 +82,7 @@ export function StepCard({
                   size="icon"
                   aria-label="Move step down"
                   disabled={isLast}
-                  onClick={() => onMove("down")}
+                  onClick={() => onMove(step.id, "down")}
                 >
                   <ChevronDown />
                 </Button>
@@ -82,7 +90,7 @@ export function StepCard({
                   variant="ghost"
                   size="icon"
                   aria-label="Delete step"
-                  onClick={onDelete}
+                  onClick={() => onDelete(step.id)}
                   className="text-muted-foreground hover:text-destructive"
                 >
                   <Trash2 />
@@ -103,4 +111,4 @@ export function StepCard({
       </CardContent>
     </Card>
   );
-}
+});

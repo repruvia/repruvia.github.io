@@ -33,31 +33,45 @@ function render(state: RecordingStatePayload): void {
 
   statsEl.hidden = !recording;
   stepCountEl.textContent = String(state.stepCount);
+
+  if (state.error) showError(state.error);
+}
+
+function showError(message: string): void {
+  statusEl.textContent = message;
+  statusEl.dataset.state = "recording"; // reuse the attention color for errors
 }
 
 toggleButton.addEventListener("click", async () => {
   toggleButton.disabled = true;
-  const current = await send({ type: "GET_RECORDING_STATE" });
-  const next = await send(
-    current.state === "recording" ? { type: "STOP_RECORDING" } : { type: "START_RECORDING" },
-  );
-  render(next);
-  toggleButton.disabled = false;
-  // Closing on stop lets the freshly opened report tab take focus.
-  if (current.state === "recording") window.close();
+  try {
+    const current = await send({ type: "GET_RECORDING_STATE" });
+    const stopping = current.state === "recording";
+    const next = await send(stopping ? { type: "STOP_RECORDING" } : { type: "START_RECORDING" });
+    render(next);
+    // Closing on a clean stop lets the freshly opened report tab take focus.
+    if (stopping && !next.error) window.close();
+  } catch {
+    showError("Couldn't reach Repruvia. Try reopening this popup.");
+  } finally {
+    toggleButton.disabled = false;
+  }
 });
 
 snipButton.addEventListener("click", async () => {
   snipButton.disabled = true;
-  const result = await send<SnapshotStartResult>({ type: "START_SNAPSHOT" });
-  if (result?.ok) {
-    // Close the popup so the in-page selection overlay is unobstructed.
-    window.close();
-  } else {
-    statusEl.textContent = result?.error ?? "Couldn't start snip.";
-    statusEl.dataset.state = "recording"; // reuse the attention color for errors
-    snipButton.disabled = false;
+  try {
+    const result = await send<SnapshotStartResult>({ type: "START_SNAPSHOT" });
+    if (result?.ok) {
+      // Close the popup so the in-page selection overlay is unobstructed.
+      window.close();
+      return;
+    }
+    showError(result?.error ?? "Couldn't start snip.");
+  } catch {
+    showError("Couldn't start snip.");
   }
+  snipButton.disabled = false;
 });
 
 // Live updates while the popup stays open.
@@ -67,4 +81,6 @@ chrome.runtime.onMessage.addListener(
   },
 );
 
-void send({ type: "GET_RECORDING_STATE" }).then(render);
+send({ type: "GET_RECORDING_STATE" }).then(render, () => {
+  showError("Couldn't reach Repruvia. Try reopening this popup.");
+});

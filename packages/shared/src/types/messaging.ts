@@ -24,7 +24,15 @@ export type PageMessage =
 export type CaptureMessage =
   | { type: "CAPTURE_EVENT"; event: DomEvent }
   | { type: "CAPTURE_CONSOLE"; entry: Omit<ConsoleEntry, "id" | "nearestStepId"> }
-  | { type: "CAPTURE_NETWORK"; failure: Omit<NetworkFailure, "id" | "nearestStepId"> }
+  | {
+      type: "CAPTURE_NETWORK";
+      failure: Omit<NetworkFailure, "id" | "nearestStepId">;
+      /**
+       * Source tab, for senders that aren't in a tab (the DevTools page). Content
+       * scripts omit it — the service worker reads `sender.tab` instead.
+       */
+      tabId?: number;
+    }
   | { type: "CAPTURE_REACT"; xpath: string; info: ReactInfo; timestamp: number };
 
 /** A drag-selected region from the snip overlay, in CSS pixels within the viewport. */
@@ -43,7 +51,19 @@ export type SnapshotMessage =
 /** Channel: service worker → content script (the snip overlay command). */
 export type TabCommand =
   | { type: "TOGGLE_CAPTURE"; active: boolean }
-  | { type: "BEGIN_SNAPSHOT" };
+  | { type: "BEGIN_SNAPSHOT" }
+  /** The region capture failed after the overlay closed; show the reason in-page. */
+  | { type: "SNAPSHOT_FAILED"; error: string };
+
+/**
+ * The content script's acknowledgement of a `TabCommand`. Stopping capture
+ * hands back the not-yet-committed typing step (inputs are debounced) so the
+ * service worker can record it deterministically before finalizing.
+ */
+export interface TabCommandAck {
+  ok: true;
+  pendingEvent?: DomEvent;
+}
 
 /** Channel: popup → service worker (control plane). */
 export type ControlMessage =
@@ -97,4 +117,6 @@ export interface RecordingStatePayload {
   state: RecordingState;
   sessionId: string | null;
   stepCount: number;
+  /** Set when a start/stop request failed, so the popup can explain why. */
+  error?: string;
 }

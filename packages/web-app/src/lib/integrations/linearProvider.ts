@@ -1,5 +1,6 @@
 import {
   exportReportToMarkdown,
+  mapWithConcurrency,
   severityToLinearPriority,
   TicketProviderError,
   type ProviderContainer,
@@ -11,6 +12,9 @@ import { screenshotAttachmentName } from "@/lib/reportAttachments";
 import { extensionBridge } from "@/lib/extensionBridge";
 
 const LINEAR_API = "https://api.linear.app/graphql";
+/** Linear rejects issue titles longer than this. */
+const TITLE_MAX = 255;
+const UPLOAD_CONCURRENCY = 3;
 
 interface GraphQLResponse<T> {
   data?: T;
@@ -40,7 +44,7 @@ export class LinearProvider implements TicketProvider {
 
   async listContainers(): Promise<ProviderContainer[]> {
     const data = await this.query<{ teams: { nodes: ProviderContainer[] } }>(
-      `query { teams { nodes { id name } } }`,
+      `query { teams(first: 250) { nodes { id name } } }`,
     );
     return data.teams.nodes;
   }
@@ -53,7 +57,7 @@ export class LinearProvider implements TicketProvider {
     // Best-effort: a failed upload just drops that one image, not the issue.
     const assetByName = new Map<string, string>();
     let uploaded = 0;
-    for (const attachment of attachments) {
+    await mapWithConcurrency(attachments, UPLOAD_CONCURRENCY, async (attachment) => {
       try {
         assetByName.set(attachment.filename, await this.uploadFile(attachment));
       } catch (err) {
@@ -62,7 +66,7 @@ export class LinearProvider implements TicketProvider {
       }
       uploaded += 1;
       onProgress?.(uploaded / (attachments.length + 1));
-    }
+    });
     if (attachments.length > 0 && assetByName.size === 0) {
       console.warn(
         "[repruvia] No screenshots uploaded to Linear — the issue will have no inline images. See the error(s) above.",
@@ -87,14 +91,14 @@ export class LinearProvider implements TicketProvider {
       {
         input: {
           teamId: target.containerId,
-          title: report.meta.title || "Bug report",
+          title: toTitle(report.meta.title),
           description,
           priority: severityToLinearPriority(report.meta.severity),
         },
       },
     );
 
-    if (!created.issueCreate.success) {
+    if (!created.issueCreate?.success || !created.issueCreate.issue) {
       throw new TicketProviderError(this.id, "Linear rejected the issue.");
     }
     const issue = created.issueCreate.issue;
@@ -164,11 +168,26 @@ export class LinearProvider implements TicketProvider {
       throw new TicketProviderError(this.id, "Network error talking to Linear.", cause);
     }
 
-    const body = (await res.json()) as GraphQLResponse<T>;
+    if (res.status === 401) {
+      throw new TicketProviderError(this.id, "Linear rejected the API key (401). Check it in Settings.");
+    }
+    let body: GraphQLResponse<T>;
+    try {
+      body = (await res.json()) as GraphQLResponse<T>;
+    } catch (cause) {
+      // Gateway/rate-limit pages come back as HTML, not GraphQL JSON.
+      throw new TicketProviderError(this.id, `Linear responded ${res.status} with an unexpected body.`, cause);
+    }
     if (body.errors?.length) {
       throw new TicketProviderError(this.id, body.errors.map((e) => e.message).join("; "));
     }
-    if (!body.data) throw new TicketProviderError(this.id, "Empty response from Linear.");
+    if (!body.data) throw new TicketProviderError(this.id, `Empty response from Linear (${res.status}).`);
     return body.data;
   }
+}
+
+/** Single-line, length-capped issue title. */
+function toTitle(title: string): string {
+  const line = title.replace(/\s+/g, " ").trim() || "Bug report";
+  return line.length > TITLE_MAX ? `${line.slice(0, TITLE_MAX - 1)}…` : line;
 }

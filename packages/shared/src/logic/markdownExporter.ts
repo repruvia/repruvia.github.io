@@ -32,7 +32,7 @@ export function exportReportToMarkdown(report: Report, options: MarkdownExportOp
 
   const lines: string[] = [];
 
-  lines.push(`# Bug Report: ${meta.title || "Untitled"}`, "");
+  lines.push(`# Bug Report: ${singleLine(meta.title) || "Untitled"}`, "");
   lines.push(`**Severity:** ${SEVERITY_LABELS[meta.severity]}  `);
   if (reportedBy) lines.push(`**Reported by:** ${reportedBy}  `);
   lines.push(`**Date:** ${env.recordingStartTime}  `, "");
@@ -49,7 +49,7 @@ export function exportReportToMarkdown(report: Report, options: MarkdownExportOp
 
   lines.push("## Steps to Reproduce", "");
   for (const step of session.steps) {
-    lines.push(`### Step ${step.index} — ${resolveStepText(step)}`);
+    lines.push(`### Step ${step.index} — ${singleLine(resolveStepText(step))}`);
     if (step.screenshot && screenshots !== "omit") {
       const src =
         screenshots === "link" && screenshotPath ? screenshotPath(step) : step.screenshot;
@@ -107,5 +107,10 @@ function appendStepContext(
 }
 
 function escapeCell(value: string): string {
-  return value.replace(/\|/g, "\\|").replace(/\n/g, " ");
+  return value.replace(/\|/g, "\\|").replace(/\r?\n/g, " ");
+}
+
+/** Collapse line breaks so user text can't break out of a Markdown heading. */
+function singleLine(value: string): string {
+  return value.replace(/\s*\r?\n\s*/g, " ").trim();
 }

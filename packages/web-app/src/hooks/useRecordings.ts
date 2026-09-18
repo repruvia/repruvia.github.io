@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import type { SessionSummary } from "@repruvia/shared";
 import { ExtensionUnavailableError, extensionBridge } from "@/lib/extensionBridge";
 import { deletePersistedReport, loadAllPersistedMeta } from "@/lib/reportPersistence";
@@ -30,12 +31,19 @@ export function useRecordings() {
     error: null,
   });
 
+  // Focus + visibilitychange usually fire together, and replies can land out of
+  // order: only the newest request may write state.
+  const latestRequest = useRef(0);
+
   const refresh = useCallback(async () => {
+    const requestId = ++latestRequest.current;
+    const isStale = () => requestId !== latestRequest.current;
     try {
       const [summaries, metaById] = await Promise.all([
         extensionBridge.listSessions(),
         loadAllPersistedMeta(),
       ]);
+      if (isStale()) return;
       const recordings: RecordingItem[] = summaries
         .map((s) => {
           const meta = metaById.get(s.id);
@@ -48,6 +56,7 @@ export function useRecordings() {
         .sort((a, b) => b.startedAt - a.startedAt);
       setState({ status: "ready", recordings, error: null });
     } catch (error) {
+      if (isStale()) return;
       if (error instanceof ExtensionUnavailableError) {
         setState({ status: "unavailable", recordings: [], error: null });
       } else {
@@ -63,8 +72,12 @@ export function useRecordings() {
   // Re-probe on focus/visibility so installing the extension in another tab is
   // picked up without a manual refresh.
   useEffect(() => {
+    let lastCheck = 0;
     const recheck = () => {
-      if (document.visibilityState === "visible") void refresh();
+      // Returning to the tab fires both events; one probe is enough.
+      if (document.visibilityState !== "visible" || Date.now() - lastCheck < 1000) return;
+      lastCheck = Date.now();
+      void refresh();
     };
     document.addEventListener("visibilitychange", recheck);
     window.addEventListener("focus", recheck);
@@ -82,6 +95,8 @@ export function useRecordings() {
         await extensionBridge.deleteSession(sessionId);
         await deletePersistedReport(sessionId);
         await deleteCreatedTicket(sessionId);
+      } catch (error) {
+        toast.error(`Couldn't delete the recording: ${(error as Error).message}`);
       } finally {
         void refresh();
       }

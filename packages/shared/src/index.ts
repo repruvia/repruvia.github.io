@@ -19,6 +19,8 @@ export {
 export { exportReportToMarkdown } from "./logic/markdownExporter.js";
 export type { MarkdownExportOptions } from "./logic/markdownExporter.js";
 export { deviceCropRect, toSnapshotSummary } from "./logic/snapshot.js";
+export { isDuplicateNetworkFailure, truncateText } from "./logic/capture.js";
+export { mapWithConcurrency } from "./logic/async.js";
 export type { PixelRect } from "./logic/snapshot.js";
 export { relativeTime, isoFromMs } from "./logic/time.js";
 export { uuid } from "./logic/id.js";

@@ -1,9 +1,19 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { toast } from "sonner";
 import type { Report } from "@repruvia/shared";
 import { buildActiveEngine, isVisionProvider } from "@/lib/ai/aiProviderRegistry";
 import { buildFieldRefineMessages, formatStepMarkdown, type RefineField } from "@/lib/ai/reportPrompt";
 import { isAiConfigured, loadSettings } from "@/lib/settings";
+import { downscaleImage } from "@/lib/imageScale";
 
 interface AiRefineContextValue {
   /** A configured active AI provider exists (and, for on-device, WebGPU works). */
@@ -26,8 +36,14 @@ export function AiRefineProvider({ report, children }: { report: Report | null; 
     setAvailable(isAiConfigured(loadSettings()));
   }, []);
 
+  // Read the report through a ref so `refine` (and the context value) stay
+  // stable while the tester types — otherwise every refine button re-renders.
+  const reportRef = useRef(report);
+  reportRef.current = report;
+
   const refine = useCallback(
     async (field: RefineField, current: string, screenshot?: string | null): Promise<string> => {
+      const report = reportRef.current;
       if (!report) throw new Error("No report loaded.");
       const settings = loadSettings();
       const engine = buildActiveEngine(settings);
@@ -41,15 +57,20 @@ export function AiRefineProvider({ report, children }: { report: Report | null; 
       });
       if (showedProgress) toast.dismiss(MODEL_TOAST_ID);
 
-      const shot = field === "step" && isVisionProvider(settings) ? screenshot : null;
+      // Full-resolution retina PNGs are several MB; the model doesn't need that.
+      const shot =
+        field === "step" && screenshot && isVisionProvider(settings)
+          ? await downscaleImage(screenshot, 1280)
+          : null;
       const out = (await engine.generate(buildFieldRefineMessages(field, current, report, shot))).trim();
       if (!out) throw new Error("The model returned nothing. Try again.");
       return field === "step" ? formatStepMarkdown(out) : out;
     },
-    [report],
+    [],
   );
 
-  return <AiRefineContext.Provider value={{ available, refine }}>{children}</AiRefineContext.Provider>;
+  const value = useMemo(() => ({ available, refine }), [available, refine]);
+  return <AiRefineContext.Provider value={value}>{children}</AiRefineContext.Provider>;
 }
 
 export function useAiRefine(): AiRefineContextValue {

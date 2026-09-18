@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import type { SnapshotSummary } from "@repruvia/shared";
 import { ExtensionUnavailableError, extensionBridge } from "@/lib/extensionBridge";
 import { deletePersistedSnapshot, loadAllSnapshotMeta } from "@/lib/snapshotPersistence";
@@ -25,17 +26,25 @@ export function useSnapshots() {
     error: null,
   });
 
+  // Focus + visibilitychange usually fire together, and replies can land out of
+  // order: only the newest request may write state.
+  const latestRequest = useRef(0);
+
   const refresh = useCallback(async () => {
+    const requestId = ++latestRequest.current;
+    const isStale = () => requestId !== latestRequest.current;
     try {
       const [summaries, metaById] = await Promise.all([
         extensionBridge.listSnapshots(),
         loadAllSnapshotMeta(),
       ]);
+      if (isStale()) return;
       const snapshots: SnapshotItem[] = summaries
         .map((s) => ({ ...s, title: metaById.get(s.id)?.title?.trim() || undefined }))
         .sort((a, b) => b.createdAt - a.createdAt);
       setState({ status: "ready", snapshots, error: null });
     } catch (error) {
+      if (isStale()) return;
       if (error instanceof ExtensionUnavailableError) {
         setState({ status: "unavailable", snapshots: [], error: null });
       } else {
@@ -49,8 +58,12 @@ export function useSnapshots() {
   }, [refresh]);
 
   useEffect(() => {
+    let lastCheck = 0;
     const recheck = () => {
-      if (document.visibilityState === "visible") void refresh();
+      // Returning to the tab fires both events; one probe is enough.
+      if (document.visibilityState !== "visible" || Date.now() - lastCheck < 1000) return;
+      lastCheck = Date.now();
+      void refresh();
     };
     document.addEventListener("visibilitychange", recheck);
     window.addEventListener("focus", recheck);
@@ -67,6 +80,8 @@ export function useSnapshots() {
         await extensionBridge.deleteSnapshot(snapshotId);
         await deletePersistedSnapshot(snapshotId);
         await deleteCreatedTicket(snapshotId);
+      } catch (error) {
+        toast.error(`Couldn't delete the snapshot: ${(error as Error).message}`);
       } finally {
         void refresh();
       }

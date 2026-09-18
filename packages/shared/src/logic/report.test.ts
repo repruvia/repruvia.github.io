@@ -52,4 +52,28 @@ describe("assignNearestSteps", () => {
     ];
     expect(assignNearestSteps(entries, steps)[0]!.nearestStepId).toBe("b");
   });
+
+  it("attributes entries before the first step to the first step", () => {
+    const steps = [step("a", 1, 1000), step("b", 2, 2000)];
+    const entries: ConsoleEntry[] = [
+      { id: "e1", level: "error", message: "early", timestamp: 10, nearestStepId: null },
+    ];
+    expect(assignNearestSteps(entries, steps)[0]!.nearestStepId).toBe("a");
+  });
+
+  it("uses timestamp order even when steps were reordered", () => {
+    const steps = [step("c", 1, 3000), step("a", 2, 1000), step("b", 3, 2000)];
+    const entries: ConsoleEntry[] = [
+      { id: "e1", level: "error", message: "x", timestamp: 2000, nearestStepId: null },
+      { id: "e2", level: "warn", message: "y", timestamp: 9999, nearestStepId: null },
+    ];
+    expect(assignNearestSteps(entries, steps).map((e) => e.nearestStepId)).toEqual(["b", "c"]);
+  });
+
+  it("assigns null when there are no steps", () => {
+    const entries: ConsoleEntry[] = [
+      { id: "e1", level: "error", message: "x", timestamp: 1, nearestStepId: "stale" },
+    ];
+    expect(assignNearestSteps(entries, [])[0]!.nearestStepId).toBeNull();
+  });
 });

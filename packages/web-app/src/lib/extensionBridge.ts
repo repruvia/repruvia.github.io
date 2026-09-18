@@ -98,19 +98,52 @@ export function isExtensionAvailable(): boolean {
   return Boolean(getRuntime());
 }
 
-async function request(message: ExternalRequest): Promise<ExternalResponse> {
+/** Default wait for an extension reply; generous because sessions carry base64 screenshots. */
+const REQUEST_TIMEOUT_MS = 30_000;
+/** Proxied uploads/AI calls; the extension aborts its own fetch at 120s. */
+const PROXY_TIMEOUT_MS = 150_000;
+
+/** lastError text Chrome uses when no extension with that id is listening. */
+function isNotInstalledError(message: string | undefined): boolean {
+  return (
+    !message ||
+    /could not establish connection|receiving end does not exist|invalid extension id/i.test(message)
+  );
+}
+
+async function request(
+  message: ExternalRequest,
+  timeoutMs: number = REQUEST_TIMEOUT_MS,
+): Promise<ExternalResponse> {
   const runtime = getRuntime();
   if (!runtime) throw new ExtensionUnavailableError();
   const extensionId = await resolveExtensionId();
 
   return new Promise((resolve, reject) => {
-    runtime.sendMessage(extensionId, message, (response) => {
-      if (runtime.lastError || !response) {
-        reject(new ExtensionUnavailableError());
-        return;
-      }
-      resolve(response);
-    });
+    const timer = setTimeout(
+      () => reject(new Error("The Repruvia extension didn't respond. Try reloading the extension.")),
+      timeoutMs,
+    );
+    const settle = (fn: () => void) => {
+      clearTimeout(timer);
+      fn();
+    };
+    try {
+      runtime.sendMessage(extensionId, message, (response) => {
+        const lastError = runtime.lastError?.message;
+        if (runtime.lastError && !isNotInstalledError(lastError)) {
+          // Installed but the call failed (e.g. a message over Chrome's size limit).
+          settle(() => reject(new Error(`Extension error: ${lastError}`)));
+        } else if (runtime.lastError || !response) {
+          settle(() => reject(new ExtensionUnavailableError()));
+        } else {
+          settle(() => resolve(response));
+        }
+      });
+    } catch {
+      // Chrome throws synchronously for an id it doesn't recognise.
+      settle(() => reject(new ExtensionUnavailableError()));
+    }
   });
 }
 
@@ -165,13 +198,16 @@ export const extensionBridge = {
     body?: Blob;
   }): Promise<{ status: number; statusText: string; bodyText: string }> {
     const bodyBase64 = init.body ? await blobToBase64(init.body) : undefined;
-    const res = await request({
-      type: "PROXY_FETCH",
-      url: init.url,
-      method: init.method,
-      headers: init.headers,
-      bodyBase64,
-    });
+    const res = await request(
+      {
+        type: "PROXY_FETCH",
+        url: init.url,
+        method: init.method,
+        headers: init.headers,
+        bodyBase64,
+      },
+      PROXY_TIMEOUT_MS,
+    );
     if (!res.ok) throw new Error(res.error);
     if (res.type !== "PROXY_FETCH") throw new Error("Unexpected proxy response");
     return { status: res.status, statusText: res.statusText, bodyText: res.bodyText };
@@ -179,12 +215,15 @@ export const extensionBridge = {
 };
 
 /** Encode a Blob as base64 (no data-URL prefix) for JSON messaging. */
-async function blobToBase64(blob: Blob): Promise<string> {
-  const bytes = new Uint8Array(await blob.arrayBuffer());
-  let binary = "";
-  const CHUNK = 0x8000; // avoid arg-count limits on String.fromCharCode
-  for (let i = 0; i < bytes.length; i += CHUNK) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
-  }
-  return btoa(binary);
+function blobToBase64(blob: Blob): Promise<string> {
+  // FileReader encodes natively — far faster than building a binary string for multi-MB screenshots.
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = String(reader.result);
+      resolve(dataUrl.slice(dataUrl.indexOf(",") + 1));
+    };
+    reader.onerror = () => reject(reader.error ?? new Error("Couldn't read the file."));
+    reader.readAsDataURL(blob);
+  });
 }

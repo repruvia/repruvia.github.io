@@ -40,7 +40,7 @@ function buildReportHtml(report: Report): string {
         ),
       ].join("");
       const shot = step.screenshot
-        ? `<img src="${step.screenshot}" alt="Step ${step.index}" />`
+        ? `<img src="${esc(step.screenshot)}" alt="Step ${step.index}" />`
         : "";
       return `
         <section class="step">

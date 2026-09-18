@@ -14,7 +14,7 @@ const INPUT_COALESCE_MS = 700;
  */
 export class DomEventObserver {
   private readonly sink: DomEventSink;
-  private lastNavigation = location.pathname + location.search + location.hash;
+  private lastNavigation = currentLocation();
   private active = false;
 
   private pendingInput: DomEvent | null = null;
@@ -25,25 +25,44 @@ export class DomEventObserver {
     this.sink = sink;
   }
 
-  start(): void {
+  get isActive(): boolean {
+    return this.active;
+  }
+
+  /**
+   * Begin capturing. `announcePage` records the current page as a navigation
+   * step — used when capture resumes on a freshly loaded document mid-recording.
+   */
+  start(options: { announcePage?: boolean } = {}): void {
     if (this.active) return;
     this.active = true;
+    this.lastNavigation = currentLocation();
     document.addEventListener("click", this.onClick, true);
     document.addEventListener("input", this.onInput, true);
     document.addEventListener("change", this.onChange, true);
     window.addEventListener("popstate", this.onNavigate);
     window.addEventListener("hashchange", this.onNavigate);
+    // SPA routers navigate with history.pushState, which fires neither event
+    // above; the Navigation API reports every same-document entry change.
+    pageNavigation()?.addEventListener("currententrychange", this.onNavigate);
+    if (options.announcePage) this.emitNavigation();
   }
 
-  stop(): void {
-    if (!this.active) return;
+  /**
+   * Stop capturing. Returns the pending (debounced) input step instead of
+   * emitting it, so the caller can hand it over synchronously with the stop ack.
+   */
+  stop(): DomEvent | null {
+    if (!this.active) return null;
+    const pending = this.takePendingInput();
     this.active = false;
-    this.flushInput();
     document.removeEventListener("click", this.onClick, true);
     document.removeEventListener("input", this.onInput, true);
     document.removeEventListener("change", this.onChange, true);
     window.removeEventListener("popstate", this.onNavigate);
     window.removeEventListener("hashchange", this.onNavigate);
+    pageNavigation()?.removeEventListener("currententrychange", this.onNavigate);
+    return pending;
   }
 
   private readonly onClick = (e: Event): void => {
@@ -73,10 +92,14 @@ export class DomEventObserver {
   };
 
   private readonly onNavigate = (): void => {
-    const next = location.pathname + location.search + location.hash;
+    const next = currentLocation();
     if (next === this.lastNavigation) return;
     this.lastNavigation = next;
     this.flushInput();
+    this.emitNavigation();
+  };
+
+  private emitNavigation(): void {
     this.sink({
       type: "navigate",
       tagName: "DOCUMENT",
@@ -91,10 +114,16 @@ export class DomEventObserver {
       xpath: "/",
       pathname: location.pathname,
     });
-  };
+  }
 
   /** Emit the buffered input step, if any. */
   private flushInput(): void {
+    const event = this.takePendingInput();
+    if (event) this.sink(event);
+  }
+
+  /** Remove and return the buffered input step, cancelling its timer. */
+  private takePendingInput(): DomEvent | null {
     if (this.inputTimer) {
       clearTimeout(this.inputTimer);
       this.inputTimer = null;
@@ -102,6 +131,20 @@ export class DomEventObserver {
     const event = this.pendingInput;
     this.pendingInput = null;
     this.pendingInputXPath = null;
-    if (event) this.sink(event);
+    return event;
   }
+}
+
+function currentLocation(): string {
+  return location.pathname + location.search + location.hash;
+}
+
+/** The Navigation API (Chrome 102+); not yet in TypeScript's DOM lib. */
+interface PageNavigation {
+  addEventListener(type: "currententrychange", listener: () => void): void;
+  removeEventListener(type: "currententrychange", listener: () => void): void;
+}
+
+function pageNavigation(): PageNavigation | undefined {
+  return (window as { navigation?: PageNavigation }).navigation;
 }

@@ -3,8 +3,6 @@ import {
   isProxyFetchAllowed,
   SESSION_TTL_MS,
   SNAPSHOT_TTL_MS,
-  toSessionSummary,
-  toSnapshotSummary,
   type CaptureMessage,
   type ControlMessage,
   type ExternalRequest,
@@ -26,25 +24,36 @@ type InternalMessage = ControlMessage | CaptureMessage | SnapshotMessage;
 chrome.runtime.onMessage.addListener((message: InternalMessage, sender, sendResponse) => {
   switch (message.type) {
     case "START_RECORDING":
-      chrome.tabs.query({ active: true, currentWindow: true }).then(([tab]) => {
-        if (tab) controller.start(tab).then(sendResponse);
-        else sendResponse(controller.getState());
-      });
+      void activeTab()
+        .then((tab) =>
+          tab ? controller.start(tab) : { ...controller.getState(), error: "No active tab to record." },
+        )
+        .then(sendResponse);
       return true;
 
     case "STOP_RECORDING":
-      controller.stop().then(sendResponse);
+      void controller.stop().then(sendResponse);
       return true;
 
     case "GET_RECORDING_STATE":
-      sendResponse(controller.getState());
-      return false;
+      // The popup gets the full state. A content script asking on page load only
+      // hears "recording" if it's in the recorded tab — other tabs stay idle.
+      void controller.whenReady().then(() => {
+        const state = controller.getState();
+        sendResponse(
+          sender.tab && !controller.isRecordingTab(sender.tab.id)
+            ? { state: "idle", sessionId: null, stepCount: 0 }
+            : state,
+        );
+      });
+      return true;
 
     case "START_SNAPSHOT":
-      chrome.tabs.query({ active: true, currentWindow: true }).then(([tab]) => {
-        if (tab) snapshotController.begin(tab).then(sendResponse);
-        else sendResponse({ ok: false, error: "No active tab." });
-      });
+      void activeTab()
+        .then((tab) =>
+          tab ? snapshotController.begin(tab) : { ok: false, error: "No active tab." },
+        )
+        .then(sendResponse);
       return true;
 
     case "CAPTURE_REGION":
@@ -55,14 +64,30 @@ chrome.runtime.onMessage.addListener((message: InternalMessage, sender, sendResp
     case "CAPTURE_EVENT":
     case "CAPTURE_CONSOLE":
     case "CAPTURE_NETWORK":
-    case "CAPTURE_REACT":
-      controller.handleCapture(message);
+    case "CAPTURE_REACT": {
+      // Content scripts are identified by their tab; the DevTools page (no tab)
+      // names the inspected tab itself.
+      const tabId =
+        sender.tab?.id ?? (message.type === "CAPTURE_NETWORK" ? message.tabId : undefined);
+      void controller.handleCapture(message, tabId);
       return false;
+    }
 
     default:
       return false;
   }
 });
+
+async function activeTab(): Promise<chrome.tabs.Tab | undefined> {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  return tab;
+}
+
+// Recording lifecycle tied to the recorded tab.
+chrome.tabs.onRemoved.addListener((tabId) => void controller.onTabRemoved(tabId));
+chrome.tabs.onAttached.addListener(
+  (tabId, info) => void controller.onTabAttached(tabId, info.newWindowId),
+);
 
 // External messages: the web app requests session/snapshot data.
 function isAllowedOrigin(origin: string | undefined): boolean {
@@ -86,10 +111,8 @@ chrome.runtime.onMessageExternal.addListener(
 
       case "LIST_SESSIONS":
         sessions
-          .list()
-          .then((list) =>
-            sendResponse({ ok: true, type: "LIST_SESSIONS", sessions: list.map(toSessionSummary) }),
-          )
+          .listSummaries()
+          .then((list) => sendResponse({ ok: true, type: "LIST_SESSIONS", sessions: list }))
           .catch((e) => sendResponse({ ok: false, error: String(e) }));
         return true;
 
@@ -109,10 +132,8 @@ chrome.runtime.onMessageExternal.addListener(
 
       case "LIST_SNAPSHOTS":
         snapshots
-          .list()
-          .then((list) =>
-            sendResponse({ ok: true, type: "LIST_SNAPSHOTS", snapshots: list.map(toSnapshotSummary) }),
-          )
+          .listSummaries()
+          .then((list) => sendResponse({ ok: true, type: "LIST_SNAPSHOTS", snapshots: list }))
           .catch((e) => sendResponse({ ok: false, error: String(e) }));
         return true;
 
@@ -136,6 +157,8 @@ chrome.runtime.onMessageExternal.addListener(
   },
 );
 
+const PROXY_FETCH_TIMEOUT_MS = 120_000;
+
 /**
  * Perform a cross-origin request from the service worker (CORS-free thanks to
  * `host_permissions`) on the web app's behalf. Restricted to ticket-provider
@@ -157,11 +180,24 @@ async function proxyFetch(
     };
   }
   const body = request.bodyBase64 ? new Blob([base64ToBytes(request.bodyBase64)]) : undefined;
-  const res = await fetch(request.url, {
-    method: request.method,
-    headers: request.headers,
-    body,
-  });
+  let res: Response;
+  try {
+    res = await fetch(request.url, {
+      method: request.method,
+      headers: request.headers,
+      body,
+      // A hung upstream would otherwise hold the web app's request open forever.
+      signal: AbortSignal.timeout(PROXY_FETCH_TIMEOUT_MS),
+    });
+  } catch (error) {
+    const timedOut = error instanceof DOMException && error.name === "TimeoutError";
+    return {
+      ok: false,
+      error: timedOut
+        ? `Request to ${new URL(request.url).hostname} timed out.`
+        : `Network error: ${error instanceof Error ? error.message : String(error)}`,
+    };
+  }
   return {
     ok: true,
     type: "PROXY_FETCH",
@@ -180,8 +216,8 @@ function base64ToBytes(base64: string): Uint8Array<ArrayBuffer> {
 
 // Prune stale sessions/snapshots on startup/install.
 function prune(): void {
-  void sessions.pruneOlderThan(SESSION_TTL_MS);
-  void snapshots.pruneOlderThan(SNAPSHOT_TTL_MS);
+  sessions.pruneOlderThan(SESSION_TTL_MS).catch(() => {});
+  snapshots.pruneOlderThan(SNAPSHOT_TTL_MS).catch(() => {});
 }
 
 chrome.runtime.onInstalled.addListener(prune);

@@ -1,5 +1,8 @@
 import {
   generateDescription,
+  isDuplicateNetworkFailure,
+  LIMITS,
+  truncateText,
   uuid,
   type RepruviaSession,
   type ConsoleEntry,
@@ -15,6 +18,13 @@ import type { ScreenshotCapturer } from "./screenshotCapturer.js";
 /** Window within which a React-info message is matched to a step by xpath. */
 const REACT_MATCH_WINDOW_MS = 500;
 
+/**
+ * Mid-recording saves are throttled to one per interval. Every save
+ * re-serializes the whole session (all base64 screenshots), so a page spamming
+ * console errors must not trigger one write per error.
+ */
+const PERSIST_INTERVAL_MS = 1000;
+
 interface BufferedReact {
   xpath: string;
   info: ReactInfo;
@@ -26,20 +36,30 @@ interface BufferedReact {
  * steps. Depends on `SessionRepository`/`ScreenshotCapturer`, not Chrome APIs.
  */
 export class SessionRecorder {
-  private session: RepruviaSession;
-  private readonly windowId: number;
+  private readonly session: RepruviaSession;
+  private windowId: number;
   private readonly reactBuffer: BufferedReact[] = [];
-  private persistScheduled = false;
+  private persistTimer: ReturnType<typeof setTimeout> | null = null;
   /** Captures still resolving; awaited on finish so none are lost. */
   private readonly inFlight = new Set<Promise<void>>();
 
-  constructor(
+  private constructor(
     private readonly repository: SessionRepository,
     private readonly screenshots: ScreenshotCapturer,
-    init: { tabId: number; windowId: number; tabUrl: string; environment: Environment },
+    session: RepruviaSession,
+    windowId: number,
   ) {
-    this.windowId = init.windowId;
-    this.session = {
+    this.session = session;
+    this.windowId = windowId;
+  }
+
+  /** Begin a brand-new session. */
+  static create(
+    repository: SessionRepository,
+    screenshots: ScreenshotCapturer,
+    init: { windowId: number; tabUrl: string; environment: Environment },
+  ): SessionRecorder {
+    const session: RepruviaSession = {
       id: uuid(),
       startedAt: Date.now(),
       endedAt: null,
@@ -49,6 +69,21 @@ export class SessionRecorder {
       consoleErrors: [],
       networkFailures: [],
     };
+    return new SessionRecorder(repository, screenshots, session, init.windowId);
+  }
+
+  /**
+   * Continue a session that was being recorded when the service worker was
+   * suspended (MV3 kills idle workers). The last persisted state is the
+   * starting point; anything captured after the last save is gone.
+   */
+  static resume(
+    repository: SessionRepository,
+    screenshots: ScreenshotCapturer,
+    session: RepruviaSession,
+    windowId: number,
+  ): SessionRecorder {
+    return new SessionRecorder(repository, screenshots, session, windowId);
   }
 
   get id(): string {
@@ -57,6 +92,11 @@ export class SessionRecorder {
 
   get stepCount(): number {
     return this.session.steps.length;
+  }
+
+  /** The recorded tab moved to another window; capture that window from now on. */
+  setWindowId(windowId: number): void {
+    this.windowId = windowId;
   }
 
   addEvent(event: DomEvent): Promise<void> {
@@ -84,14 +124,22 @@ export class SessionRecorder {
   }
 
   addConsole(entry: Omit<ConsoleEntry, "id" | "nearestStepId">): void {
-    const record: ConsoleEntry = { id: uuid(), nearestStepId: null, ...entry };
-    this.session.consoleErrors.push(record);
+    if (this.session.consoleErrors.length >= LIMITS.CONSOLE_ENTRIES_MAX) return;
+    this.session.consoleErrors.push({
+      id: uuid(),
+      nearestStepId: null,
+      ...entry,
+      message: truncateText(entry.message, LIMITS.CONSOLE_MESSAGE_MAX),
+    });
     this.schedulePersist();
   }
 
   addNetwork(failure: Omit<NetworkFailure, "id" | "nearestStepId">): void {
-    const record: NetworkFailure = { id: uuid(), nearestStepId: null, ...failure };
-    this.session.networkFailures.push(record);
+    const recorded = this.session.networkFailures;
+    if (recorded.length >= LIMITS.NETWORK_ENTRIES_MAX) return;
+    // DevTools + the in-page patch usually both report the same failure.
+    if (isDuplicateNetworkFailure(recorded, failure)) return;
+    recorded.push({ id: uuid(), nearestStepId: null, ...failure });
     this.schedulePersist();
   }
 
@@ -104,10 +152,17 @@ export class SessionRecorder {
     }
   }
 
+  /** Save the current state now (e.g. right after start, so a worker restart can resume it). */
+  async flush(): Promise<void> {
+    this.cancelPersist();
+    await this.repository.save(this.session);
+  }
+
   /** Finalize and persist the session; returns the completed snapshot. */
   async finish(): Promise<RepruviaSession> {
     // Wait for any queued screenshots so trailing steps aren't lost.
     await Promise.allSettled([...this.inFlight]);
+    this.cancelPersist();
     this.session.endedAt = Date.now();
     await this.repository.save(this.session);
     return this.session;
@@ -124,13 +179,24 @@ export class SessionRecorder {
     return null;
   }
 
-  /** Coalesce rapid writes into a single IndexedDB put on the next microtask. */
+  /**
+   * Coalesce changes into at most one IndexedDB put per interval. A fixed delay
+   * (not a sliding debounce) so a steady stream of errors can't postpone saving forever.
+   */
   private schedulePersist(): void {
-    if (this.persistScheduled) return;
-    this.persistScheduled = true;
-    queueMicrotask(() => {
-      this.persistScheduled = false;
-      void this.repository.save(this.session);
-    });
+    if (this.persistTimer) return;
+    this.persistTimer = setTimeout(() => {
+      this.persistTimer = null;
+      this.repository.save(this.session).catch((error: unknown) => {
+        console.warn("[Repruvia] Couldn't save the in-progress recording:", error);
+      });
+    }, PERSIST_INTERVAL_MS);
+  }
+
+  private cancelPersist(): void {
+    if (this.persistTimer) {
+      clearTimeout(this.persistTimer);
+      this.persistTimer = null;
+    }
   }
 }
