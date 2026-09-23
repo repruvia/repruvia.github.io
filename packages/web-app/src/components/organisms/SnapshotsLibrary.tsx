@@ -24,7 +24,7 @@ export function SnapshotsLibrary({ snapshots, onDelete, showHeading = true }: Sn
           <p className="font-medium">No snapshots yet</p>
           <p className="max-w-sm text-sm text-muted-foreground">
             Click the Repruvia toolbar icon and choose <strong>Snip Screenshot</strong>, then drag
-            to capture a region. It opens here for annotation.
+            to capture a region. It opens here so you can mark it up.
           </p>
         </div>
       ) : (

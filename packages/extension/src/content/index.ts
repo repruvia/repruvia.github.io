@@ -50,6 +50,9 @@ chrome.runtime.onMessage.addListener(
         showSnapshotError(message.error);
         sendResponse({ ok: true });
         return false;
+      case "PING":
+        sendResponse({ ok: true });
+        return false;
       default:
         return false;
     }

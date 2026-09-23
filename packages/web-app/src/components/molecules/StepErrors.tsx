@@ -46,7 +46,7 @@ export function StepErrors({ console, network }: StepErrorsProps) {
           <DialogHeader>
             <DialogTitle>Errors for this step</DialogTitle>
             <DialogDescription>
-              {total} {total === 1 ? "issue" : "issues"} captured while this interaction was recorded.
+              {total} {total === 1 ? "issue" : "issues"} captured while this step was recorded.
             </DialogDescription>
           </DialogHeader>
 

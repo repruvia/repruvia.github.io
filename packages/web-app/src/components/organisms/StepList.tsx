@@ -13,7 +13,7 @@ export function StepList({ editor }: { editor: ReportEditor }) {
   if (session.steps.length === 0) {
     return (
       <p className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
-        No interactions were captured in this session.
+        No steps were captured in this recording.
       </p>
     );
   }

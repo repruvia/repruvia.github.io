@@ -16,3 +16,9 @@ packages/shared/dist/
 
 # Local Claude Code settings
 .claude/settings.local.json
+
+# Firebase
+.firebase/
+firebase-debug*.log
+firestore-debug*.log
+ui-debug*.log

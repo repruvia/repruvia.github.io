@@ -47,7 +47,7 @@ export function AiRefineProvider({ report, children }: { report: Report | null; 
       if (!report) throw new Error("No report loaded.");
       const settings = loadSettings();
       const engine = buildActiveEngine(settings);
-      if (!engine) throw new Error("No AI provider is configured.");
+      if (!engine) throw new Error("No AI is set up yet. Turn one on in Settings.");
 
       // Lazy model load (on-device, first use only); show progress.
       let showedProgress = false;
@@ -63,7 +63,7 @@ export function AiRefineProvider({ report, children }: { report: Report | null; 
           ? await downscaleImage(screenshot, 1280)
           : null;
       const out = (await engine.generate(buildFieldRefineMessages(field, current, report, shot))).trim();
-      if (!out) throw new Error("The model returned nothing. Try again.");
+      if (!out) throw new Error("The AI didn't write anything. Try again.");
       return field === "step" ? formatStepMarkdown(out) : out;
     },
     [],
@@ -78,7 +78,7 @@ export function useAiRefine(): AiRefineContextValue {
     useContext(AiRefineContext) ?? {
       available: false,
       refine: async () => {
-        throw new Error("AiRefineProvider is missing.");
+        throw new Error("AI isn't available here.");
       },
     }
   );

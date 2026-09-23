@@ -6,6 +6,7 @@ import type {
   Snapshot,
   SnapshotSummary,
 } from "@repruvia/shared";
+import { blobToBase64 } from "./base64";
 
 /** Optional explicit override; normally the ID is auto-discovered. */
 const ENV_EXTENSION_ID = import.meta.env.VITE_EXTENSION_ID ?? "";
@@ -133,7 +134,14 @@ async function request(
         const lastError = runtime.lastError?.message;
         if (runtime.lastError && !isNotInstalledError(lastError)) {
           // Installed but the call failed (e.g. a message over Chrome's size limit).
-          settle(() => reject(new Error(`Extension error: ${lastError}`)));
+          settle(() =>
+            reject(
+              new Error(
+                "The Repruvia extension couldn't finish that. Try reloading the extension.",
+                { cause: lastError },
+              ),
+            ),
+          );
         } else if (runtime.lastError || !response) {
           settle(() => reject(new ExtensionUnavailableError()));
         } else {
@@ -209,21 +217,9 @@ export const extensionBridge = {
       PROXY_TIMEOUT_MS,
     );
     if (!res.ok) throw new Error(res.error);
-    if (res.type !== "PROXY_FETCH") throw new Error("Unexpected proxy response");
+    if (res.type !== "PROXY_FETCH") {
+      throw new Error("The Repruvia extension sent back an unexpected reply. Try again.");
+    }
     return { status: res.status, statusText: res.statusText, bodyText: res.bodyText };
   },
 };
-
-/** Encode a Blob as base64 (no data-URL prefix) for JSON messaging. */
-function blobToBase64(blob: Blob): Promise<string> {
-  // FileReader encodes natively — far faster than building a binary string for multi-MB screenshots.
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = String(reader.result);
-      resolve(dataUrl.slice(dataUrl.indexOf(",") + 1));
-    };
-    reader.onerror = () => reject(reader.error ?? new Error("Couldn't read the file."));
-    reader.readAsDataURL(blob);
-  });
-}

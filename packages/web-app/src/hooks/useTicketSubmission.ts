@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import {
   exportReportToMarkdown,
+  toFriendlyMessage,
   type ProviderContainer,
   type Report,
   type SubmissionResult,
@@ -47,7 +48,12 @@ export function useTicketSubmission(report: Report | null) {
         const containers = await provider.listContainers();
         setState({ ...INITIAL, phase: "ready", containers });
       } catch (error) {
-        setState({ ...INITIAL, phase: "error", error: (error as Error).message });
+        console.error("[repruvia] Couldn't connect to the ticket provider:", error);
+        setState({
+          ...INITIAL,
+          phase: "error",
+          error: toFriendlyMessage(error, "Couldn't connect. Check your API key and try again."),
+        });
       }
     },
     [providers],
@@ -74,7 +80,12 @@ export function useTicketSubmission(report: Report | null) {
         });
         setState((s) => ({ ...s, phase: "done", result }));
       } catch (error) {
-        setState((s) => ({ ...s, phase: "error", error: (error as Error).message }));
+        console.error("[repruvia] Couldn't submit the ticket:", error);
+        setState((s) => ({
+          ...s,
+          phase: "error",
+          error: toFriendlyMessage(error, "Couldn't submit this ticket. Try again."),
+        }));
       }
     },
     [providers, report],

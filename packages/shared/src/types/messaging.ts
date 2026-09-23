@@ -53,7 +53,14 @@ export type TabCommand =
   | { type: "TOGGLE_CAPTURE"; active: boolean }
   | { type: "BEGIN_SNAPSHOT" }
   /** The region capture failed after the overlay closed; show the reason in-page. */
-  | { type: "SNAPSHOT_FAILED"; error: string };
+  | { type: "SNAPSHOT_FAILED"; error: string }
+  /**
+   * No-op reachability probe: the popup sends this (via `chrome.tabs.sendMessage`,
+   * same as any other `TabCommand`) to find out whether a content script is
+   * attached to the active tab before showing recording controls. A rejected
+   * send means there's no content script there.
+   */
+  | { type: "PING" };
 
 /**
  * The content script's acknowledgement of a `TabCommand`. Stopping capture

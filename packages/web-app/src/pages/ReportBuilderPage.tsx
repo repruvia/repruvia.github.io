@@ -29,15 +29,15 @@ export function ReportBuilderPage() {
   );
 
   const reportActions = useReportActions(report);
-  const { ticket, setTicket } = useCreatedTicket(sessionId);
+  const { ticket, setTicket } = useCreatedTicket(sessionId, "session");
   const [submitting, setSubmitting] = useState<ProviderId | null>(null);
   useFlushOnHide(flushReportSave);
 
   if (!sessionId) {
     return (
       <StateScreen
-        title="No session loaded"
-        description="Open a recording from the Repruvia extension to build a report."
+        title="No recording open"
+        description="Open a recording from your library to build a report."
       />
     );
   }
@@ -45,7 +45,7 @@ export function ReportBuilderPage() {
     return <ReportBuilderSkeleton />;
   }
   if (status === "error" || !session || !report) {
-    return <StateScreen title="Couldn't load this session" description={error ?? undefined} />;
+    return <StateScreen title="Couldn't load this recording" description={error ?? undefined} />;
   }
 
   return (
@@ -67,7 +67,7 @@ export function ReportBuilderPage() {
           providerId={submitting}
           report={report}
           onClose={() => setSubmitting(null)}
-          onCreated={setTicket}
+          onCreated={(created) => setTicket({ ...created, title: meta.title })}
         />
       </PageContainer>
     </AiRefineProvider>

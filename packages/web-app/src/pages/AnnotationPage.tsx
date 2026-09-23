@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, Check, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
-import { exportReportToMarkdown, type Report } from "@repruvia/shared";
+import { exportReportToMarkdown, toFriendlyMessage, type Report } from "@repruvia/shared";
 import { PageContainer } from "@/components/atoms/PageContainer";
 import { StateScreen } from "@/components/molecules/StateScreen";
 import { AnnotationToolbar } from "@/components/molecules/AnnotationToolbar";
@@ -83,7 +83,7 @@ export function AnnotationPage() {
   // Report built lazily on submit so it carries the flattened annotated image captured at click time.
   const [submitting, setSubmitting] = useState<ProviderId | null>(null);
   const [submitReport, setSubmitReport] = useState<Report | null>(null);
-  const { ticket, setTicket } = useCreatedTicket(snapshotId);
+  const { ticket, setTicket } = useCreatedTicket(snapshotId, "snapshot");
 
   // Switching to a drawing tool clears the current selection.
   const setTool = (next: AnnotationTool) => {
@@ -167,11 +167,9 @@ export function AnnotationPage() {
       toast.success("Draft generated from the image");
     } catch (e) {
       console.error("Snapshot AI generation failed:", e);
-      const message =
-        e instanceof Error && e.message
-          ? e.message
-          : "AI generation failed. Check your provider/API key in Settings and try again.";
-      toast.error(message);
+      toast.error(
+        toFriendlyMessage(e, "AI couldn't draft this. Check your AI settings and try again."),
+      );
     }
   };
 
@@ -336,11 +334,11 @@ export function AnnotationPage() {
 
         {!aiAvailable && (
           <p className="text-xs text-muted-foreground">
-            Configure a vision-capable AI provider in{" "}
+            Choose an AI that can read images in{" "}
             <Link to="/settings" className="text-primary underline-offset-2 hover:underline">
               Settings
             </Link>{" "}
-            to generate a title &amp; description from the image.
+            to draft a title and description from your screenshot.
           </p>
         )}
       </div>
@@ -349,7 +347,7 @@ export function AnnotationPage() {
         providerId={submitting}
         report={submitReport}
         onClose={() => setSubmitting(null)}
-        onCreated={setTicket}
+        onCreated={(created) => setTicket({ ...created, title })}
       />
     </PageContainer>
   );

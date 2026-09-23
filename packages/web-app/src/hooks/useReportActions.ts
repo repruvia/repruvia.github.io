@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import type { Report } from "@repruvia/shared";
+import { toFriendlyMessage, type Report } from "@repruvia/shared";
 import { toast } from "sonner";
 import { useMarkdownExport } from "@/hooks/useMarkdownExport";
 import { printReportAsPdf } from "@/lib/exportPdf";
@@ -36,14 +36,15 @@ export function useReportActions(report: Report | null): ReportActions {
         try {
           printReportAsPdf(report);
         } catch (err) {
-          toast.error(err instanceof Error ? err.message : "Couldn't export PDF");
+          console.error("[repruvia] Couldn't export PDF:", err);
+          toast.error(toFriendlyMessage(err, "Couldn't export the PDF."));
         }
       },
       copyMarkdown: () => {
         if (report) void copy(reportToMarkdown(report), "Markdown");
       },
       copyText: () => {
-        if (report) void copy(reportToPlainText(report), "Text");
+        if (report) void copy(reportToPlainText(report), "Plain text");
       },
     }),
     [report, exportMarkdown],

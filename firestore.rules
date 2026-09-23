@@ -1,0 +1,31 @@
+rules_version = '2';
+
+// Repruvia cloud data, per signed-in user (Firebase Auth uid).
+//
+// Privacy: recordings, screenshots, and credentials (API keys / tokens) are
+// NEVER stored here — they stay in the browser/extension. Only non-secret
+// profile preferences and links to tickets the user created are synced.
+//
+// Every path is scoped to the caller: a user can only ever read or write
+// documents under their own uid, and nothing is world-readable.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    // Non-secret app preferences, synced across the user's devices.
+    match /users/{uid} {
+      allow read, write: if isOwner(uid);
+
+      // A Linear/Jira issue created from a recording or snip, keyed by the
+      // source id (recording session id or snapshot id) it was raised from.
+      match /tickets/{sourceId} {
+        allow read, write: if isOwner(uid);
+      }
+    }
+
+    // Anything not matched above is denied by default.
+  }
+}

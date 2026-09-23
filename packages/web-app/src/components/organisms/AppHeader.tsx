@@ -3,11 +3,14 @@ import { Github, Settings, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageContainer } from "@/components/atoms/PageContainer";
 import { ThemeToggle } from "@/components/molecules/ThemeToggle";
+import { AccountMenu } from "@/components/molecules/AccountMenu";
+import { useAuth } from "@/hooks/auth";
 import { GITHUB_REPO, GITHUB_URL } from "@/lib/links";
 import { formatStarCount, useGithubStars } from "@/hooks/useGithubStars";
 
 export function AppHeader() {
   const stars = useGithubStars(GITHUB_REPO);
+  const { status, user, signIn, signOut } = useAuth();
   return (
     <header className="sticky top-0 z-20 border-b border-border/60 bg-background/70 backdrop-blur-md">
       <PageContainer className="flex items-center justify-between py-3">
@@ -35,10 +38,18 @@ export function AppHeader() {
           </Button>
           <ThemeToggle />
           <Button asChild variant="ghost" size="sm">
-            <Link to="/settings">
+            <Link to="/settings" aria-label="Settings">
               <Settings />
             </Link>
           </Button>
+          <AccountMenu
+            status={status}
+            displayName={user?.displayName ?? null}
+            email={user?.email ?? null}
+            photoUrl={user?.photoURL ?? null}
+            onSignIn={() => void signIn()}
+            onSignOut={() => void signOut()}
+          />
         </div>
       </PageContainer>
     </header>

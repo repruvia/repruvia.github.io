@@ -20,10 +20,21 @@ export { exportReportToMarkdown } from "./logic/markdownExporter.js";
 export type { MarkdownExportOptions } from "./logic/markdownExporter.js";
 export { deviceCropRect, toSnapshotSummary } from "./logic/snapshot.js";
 export { isDuplicateNetworkFailure, truncateText } from "./logic/capture.js";
+export { isNeverRecordablePage } from "./logic/restrictedPage.js";
+export type { NeverRecordablePageOptions } from "./logic/restrictedPage.js";
+export { resolvePopupView } from "./logic/popupVisibility.js";
+export type { PopupAvailability, PopupViewModel } from "./logic/popupVisibility.js";
 export { mapWithConcurrency } from "./logic/async.js";
 export type { PixelRect } from "./logic/snapshot.js";
 export { relativeTime, isoFromMs } from "./logic/time.js";
 export { uuid } from "./logic/id.js";
+export { toFriendlyMessage } from "./logic/friendlyError.js";
+export {
+  toIsoTimestamp,
+  toOptionalString,
+  toStringRecord,
+  toText,
+} from "./logic/cloudDoc.js";
 
 export * from "./integrations/ticketProvider.js";
 

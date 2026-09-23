@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Blocks, Sparkles, User, type LucideIcon } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
+import { Blocks, CircleUserRound, Sparkles, User, type LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,21 +16,37 @@ import {
   IntegrationsSection,
   ProfileSection,
 } from "@/components/organisms/SettingsSections";
+import { AccountSection } from "@/components/organisms/AccountSection";
 import { PageContainer } from "@/components/atoms/PageContainer";
 import { useSettings } from "@/hooks/useSettings";
+import { useAuth } from "@/hooks/auth";
+import { useTicketHistory } from "@/hooks/useTicketHistory";
 import { cn } from "@/lib/utils";
 
-type SectionId = "profile" | "integrations" | "ai";
+type SectionId = "account" | "profile" | "integrations" | "ai";
 
 const SECTIONS: { id: SectionId; label: string; description: string; icon: LucideIcon }[] = [
-  { id: "profile", label: "Profile", description: "Your reporter identity", icon: User },
-  { id: "integrations", label: "Integrations", description: "Linear & Jira credentials", icon: Blocks },
-  { id: "ai", label: "AI", description: "Provider & model preferences", icon: Sparkles },
+  {
+    id: "account",
+    label: "Account",
+    description: "Sign in, syncing, and your ticket history",
+    icon: CircleUserRound,
+  },
+  { id: "profile", label: "Profile", description: "The name shown on your reports", icon: User },
+  { id: "integrations", label: "Integrations", description: "Connect Linear and Jira", icon: Blocks },
+  { id: "ai", label: "AI", description: "Choose the AI that drafts your reports", icon: Sparkles },
 ];
 
 export function SettingsPage() {
   const { settings, update, persist } = useSettings();
-  const [active, setActive] = useState<SectionId>("profile");
+  const [params] = useSearchParams();
+  const [active, setActive] = useState<SectionId>(() =>
+    SECTIONS.some((s) => s.id === params.get("section"))
+      ? (params.get("section") as SectionId)
+      : "profile",
+  );
+  const { status, user, signIn, signOut } = useAuth();
+  const history = useTicketHistory(user?.uid ?? null);
 
   const save = () => {
     persist();
@@ -43,7 +60,8 @@ export function SettingsPage() {
       <div>
         <h1 className="text-2xl font-bold">Settings</h1>
         <p className="text-sm text-muted-foreground">
-          Credentials are stored only in this browser and sent only to the respective service.
+          Your API keys and tokens stay in this browser. They are only ever sent to the service
+          they belong to.
         </p>
       </div>
 
@@ -77,6 +95,19 @@ export function SettingsPage() {
             </CardHeader>
             <Separator />
             <CardContent>
+              {active === "account" && (
+                <AccountSection
+                  status={status}
+                  displayName={user?.displayName ?? null}
+                  email={user?.email ?? null}
+                  tickets={history.tickets}
+                  historyStatus={history.status}
+                  historyError={history.error}
+                  onSignIn={() => void signIn()}
+                  onSignOut={() => void signOut()}
+                  onRefresh={() => void history.refresh()}
+                />
+              )}
               {active === "profile" && <ProfileSection settings={settings} update={update} />}
               {active === "integrations" && (
                 <IntegrationsSection settings={settings} update={update} />
@@ -85,9 +116,11 @@ export function SettingsPage() {
             </CardContent>
           </Card>
 
-          <div className="mt-4 flex justify-end">
-            <Button onClick={save}>Save settings</Button>
-          </div>
+          {active !== "account" && (
+            <div className="mt-4 flex justify-end">
+              <Button onClick={save}>Save settings</Button>
+            </div>
+          )}
         </div>
       </div>
     </PageContainer>

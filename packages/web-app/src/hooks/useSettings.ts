@@ -1,10 +1,19 @@
-import { useCallback, useState } from "react";
-import { loadSettings, saveSettings, type AppSettings } from "@/lib/settings";
+import { useCallback, useEffect, useState } from "react";
+import { loadSettings, saveSettings, subscribeSettings, type AppSettings } from "@/lib/settings";
 
 /** Owns the settings form state and persistence. */
 export function useSettings() {
   const [settings, setSettings] = useState<AppSettings>(() => loadSettings());
   const [savedAt, setSavedAt] = useState<number | null>(null);
+
+  // Settings pulled from the user's account after sign-in replace the form.
+  useEffect(
+    () =>
+      subscribeSettings((next, origin) => {
+        if (origin === "cloud") setSettings(next);
+      }),
+    [],
+  );
 
   const update = useCallback(<K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
     setSettings((prev) => ({ ...prev, [key]: value }));

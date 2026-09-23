@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { SNAPSHOT_QUERY_PARAM } from "@repruvia/shared";
+import { SNAPSHOT_QUERY_PARAM, toFriendlyMessage } from "@repruvia/shared";
 import { useSnapshotStore } from "@/store/snapshotStore";
 import { extensionBridge } from "@/lib/extensionBridge";
 import { loadPersistedSnapshot } from "@/lib/snapshotPersistence";
@@ -31,11 +31,12 @@ export function useSnapshotLoader(snapshotId: string | null): void {
     ])
       .then(([snapshot, persisted]) => {
         if (cancelled) return;
-        if (!snapshot) setError("Snapshot not found. It may have expired or been deleted.");
+        if (!snapshot) setError("That snapshot isn't available any more. It may have expired or been deleted.");
         else setSnapshot(snapshot, persisted);
       })
       .catch((error: Error) => {
-        if (!cancelled) setError(error.message);
+        console.error("[repruvia] Couldn't load the snip:", error);
+        if (!cancelled) setError(toFriendlyMessage(error, "Couldn't load this snapshot right now."));
       });
 
     return () => {

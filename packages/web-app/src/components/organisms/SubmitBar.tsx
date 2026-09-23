@@ -35,7 +35,7 @@ export function SubmitBar({ actions, onSubmit, createdTicket }: SubmitBarProps) 
         variant="outline"
         items={[
           { icon: <Clipboard />, label: "Markdown", onSelect: actions.copyMarkdown },
-          { icon: <Clipboard />, label: "Raw text", onSelect: actions.copyText },
+          { icon: <Clipboard />, label: "Plain text", onSelect: actions.copyText },
         ]}
       />
       {createdTicket ? (

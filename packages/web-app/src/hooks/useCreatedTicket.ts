@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
+import { useAuth } from "@/hooks/auth";
 import {
   loadCreatedTicket,
   saveCreatedTicket,
   type CreatedTicket,
+  type TicketSourceKind,
 } from "@/lib/ticketPersistence";
 
 /**
@@ -10,8 +12,10 @@ import {
  * IndexedDB on mount so a created issue survives reloads (UI offers "View
  * issue" instead of "Raise an issue").
  */
-export function useCreatedTicket(sessionId: string | null) {
+export function useCreatedTicket(sessionId: string | null, sourceKind: TicketSourceKind) {
   const [ticket, setTicketState] = useState<CreatedTicket | null>(null);
+  // Re-check once sign-in restores: a ticket raised on another device lives in the account.
+  const uid = useAuth().user?.uid ?? null;
 
   useEffect(() => {
     let active = true;
@@ -23,14 +27,14 @@ export function useCreatedTicket(sessionId: string | null) {
     return () => {
       active = false;
     };
-  }, [sessionId]);
+  }, [sessionId, uid]);
 
   const setTicket = useCallback(
     (next: CreatedTicket) => {
       setTicketState(next);
-      if (sessionId) void saveCreatedTicket(sessionId, next);
+      if (sessionId) void saveCreatedTicket(sessionId, next, sourceKind);
     },
-    [sessionId],
+    [sessionId, sourceKind],
   );
 
   return { ticket, setTicket };

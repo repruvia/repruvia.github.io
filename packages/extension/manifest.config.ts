@@ -9,6 +9,17 @@ import pkg from "./package.json" with { type: "json" };
  *    fiber reader. These MUST run in the page's own world to override the
  *    page's `console`/`fetch` and read `__REACT_DEVTOOLS_GLOBAL_HOOK__`.
  */
+/**
+ * Web app origins the extension talks to. Keep in sync with
+ * `ALLOWED_WEB_APP_ORIGINS` in `@repruvia/shared`.
+ */
+const WEB_APP_MATCHES = [
+  "http://localhost:3000/*",
+  "https://repruvia.web.app/*",
+  "https://repruvia.firebaseapp.com/*",
+  "https://repruvia.github.io/*",
+];
+
 export default defineManifest({
   manifest_version: 3,
   name: "Repruvia",
@@ -41,7 +52,7 @@ export default defineManifest({
     },
     {
       // Self-identify to the Repruvia web app so it needs no extension-id config.
-      matches: ["http://localhost:3000/*", "https://repruvia.github.io/*"],
+      matches: WEB_APP_MATCHES,
       js: ["src/content/webappBridge.ts"],
       run_at: "document_start",
       world: "ISOLATED",
@@ -59,6 +70,6 @@ export default defineManifest({
   devtools_page: "src/devtools/devtools.html",
   // Allow the Repruvia web app to message the extension directly.
   externally_connectable: {
-    matches: ["http://localhost:3000/*", "https://repruvia.github.io/*"],
+    matches: WEB_APP_MATCHES,
   },
 });

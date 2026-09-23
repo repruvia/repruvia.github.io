@@ -68,7 +68,7 @@ export function SubmitDialog({ providerId, report, onClose, onCreated }: SubmitD
         <DialogHeader>
           <DialogTitle>Submit to {provider?.displayName}</DialogTitle>
           <DialogDescription>
-            Create an issue with the report body and screenshots.
+            Create an issue with your report and its screenshots.
           </DialogDescription>
         </DialogHeader>
 
@@ -105,7 +105,7 @@ export function SubmitDialog({ providerId, report, onClose, onCreated }: SubmitD
                 <div className="flex flex-col gap-0.5">
                   <Label htmlFor="include-images">Include screenshots</Label>
                   <span className="text-xs text-muted-foreground">
-                    Embed step screenshots inline in the issue.
+                    Add every step screenshot to the issue.
                   </span>
                 </div>
                 <Switch

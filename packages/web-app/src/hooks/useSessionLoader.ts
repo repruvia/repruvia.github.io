@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { SESSION_QUERY_PARAM } from "@repruvia/shared";
+import { SESSION_QUERY_PARAM, toFriendlyMessage } from "@repruvia/shared";
 import { useReportStore } from "@/store/reportStore";
 import { extensionBridge } from "@/lib/extensionBridge";
 import { loadPersistedReport } from "@/lib/reportPersistence";
@@ -31,11 +31,12 @@ export function useSessionLoader(sessionId: string | null): void {
     Promise.all([extensionBridge.getSession(sessionId), loadPersistedReport(sessionId)])
       .then(([session, persisted]) => {
         if (cancelled) return;
-        if (!session) setError("Session not found. It may have expired or been deleted.");
+        if (!session) setError("That recording isn't available any more. It may have expired or been deleted.");
         else setSession(session, persisted);
       })
       .catch((error: Error) => {
-        if (!cancelled) setError(error.message);
+        console.error("[repruvia] Couldn't load the recording:", error);
+        if (!cancelled) setError(toFriendlyMessage(error, "Couldn't load this recording right now."));
       });
 
     return () => {

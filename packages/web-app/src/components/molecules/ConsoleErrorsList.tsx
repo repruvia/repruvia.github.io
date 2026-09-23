@@ -10,7 +10,7 @@ export function ConsoleErrorsList({ entries, startedAt }: ConsoleErrorsListProps
   if (entries.length === 0) {
     return (
       <p className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
-        No console errors were captured in this session.
+        No console errors were captured in this recording.
       </p>
     );
   }

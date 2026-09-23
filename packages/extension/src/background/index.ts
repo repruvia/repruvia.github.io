@@ -89,6 +89,15 @@ chrome.tabs.onAttached.addListener(
   (tabId, info) => void controller.onTabAttached(tabId, info.newWindowId),
 );
 
+/**
+ * Log the real failure for developers and hand the web app one plain sentence —
+ * a raw error object must never reach the tester's screen.
+ */
+function failed(error: unknown, message: string): ExternalResponse {
+  console.error("[repruvia]", message, error);
+  return { ok: false, error: message };
+}
+
 // External messages: the web app requests session/snapshot data.
 function isAllowedOrigin(origin: string | undefined): boolean {
   return !!origin && (ALLOWED_WEB_APP_ORIGINS as readonly string[]).includes(origin);
@@ -97,7 +106,7 @@ function isAllowedOrigin(origin: string | undefined): boolean {
 chrome.runtime.onMessageExternal.addListener(
   (request: ExternalRequest, sender, sendResponse: (r: ExternalResponse) => void) => {
     if (!isAllowedOrigin(sender.origin)) {
-      sendResponse({ ok: false, error: "Origin not allowed" });
+      sendResponse({ ok: false, error: "This site isn't allowed to use Repruvia." });
       return false;
     }
 
@@ -106,52 +115,52 @@ chrome.runtime.onMessageExternal.addListener(
         sessions
           .get(request.sessionId)
           .then((session) => sendResponse({ ok: true, type: "GET_SESSION", session }))
-          .catch((e) => sendResponse({ ok: false, error: String(e) }));
+          .catch((e) => sendResponse(failed(e, "Couldn't open that recording.")));
         return true;
 
       case "LIST_SESSIONS":
         sessions
           .listSummaries()
           .then((list) => sendResponse({ ok: true, type: "LIST_SESSIONS", sessions: list }))
-          .catch((e) => sendResponse({ ok: false, error: String(e) }));
+          .catch((e) => sendResponse(failed(e, "Couldn't load your recordings.")));
         return true;
 
       case "DELETE_SESSION":
         sessions
           .delete(request.sessionId)
           .then(() => sendResponse({ ok: true, type: "DELETE_SESSION" }))
-          .catch((e) => sendResponse({ ok: false, error: String(e) }));
+          .catch((e) => sendResponse(failed(e, "Couldn't delete that recording.")));
         return true;
 
       case "GET_SNAPSHOT":
         snapshots
           .get(request.snapshotId)
           .then((snapshot) => sendResponse({ ok: true, type: "GET_SNAPSHOT", snapshot }))
-          .catch((e) => sendResponse({ ok: false, error: String(e) }));
+          .catch((e) => sendResponse(failed(e, "Couldn't open that snapshot.")));
         return true;
 
       case "LIST_SNAPSHOTS":
         snapshots
           .listSummaries()
           .then((list) => sendResponse({ ok: true, type: "LIST_SNAPSHOTS", snapshots: list }))
-          .catch((e) => sendResponse({ ok: false, error: String(e) }));
+          .catch((e) => sendResponse(failed(e, "Couldn't load your snapshots.")));
         return true;
 
       case "DELETE_SNAPSHOT":
         snapshots
           .delete(request.snapshotId)
           .then(() => sendResponse({ ok: true, type: "DELETE_SNAPSHOT" }))
-          .catch((e) => sendResponse({ ok: false, error: String(e) }));
+          .catch((e) => sendResponse(failed(e, "Couldn't delete that snapshot.")));
         return true;
 
       case "PROXY_FETCH":
         proxyFetch(request)
           .then(sendResponse)
-          .catch((e) => sendResponse({ ok: false, error: String(e) }));
+          .catch((e) => sendResponse(failed(e, "Couldn't finish that request.")));
         return true;
 
       default:
-        sendResponse({ ok: false, error: "Unknown request" });
+        sendResponse({ ok: false, error: "Repruvia didn't understand that request." });
         return false;
     }
   },
@@ -168,15 +177,11 @@ async function proxyFetch(
   request: Extract<ExternalRequest, { type: "PROXY_FETCH" }>,
 ): Promise<ExternalResponse> {
   if (!isProxyFetchAllowed(request.url)) {
-    let host = request.url;
-    try {
-      host = new URL(request.url).hostname;
-    } catch {
-      // keep the raw url in the message
-    }
+    console.warn("[repruvia] Blocked a request to a host Repruvia doesn't allow:", request.url);
     return {
       ok: false,
-      error: `Host not allowed by the extension proxy: ${host}. Reload the Repruvia extension if you just updated it.`,
+      error:
+        "Repruvia isn't allowed to contact that service. Reload the extension if you just updated it.",
     };
   }
   const body = request.bodyBase64 ? new Blob([base64ToBytes(request.bodyBase64)]) : undefined;
@@ -191,11 +196,12 @@ async function proxyFetch(
     });
   } catch (error) {
     const timedOut = error instanceof DOMException && error.name === "TimeoutError";
+    console.error("[repruvia] Request failed:", request.url, error);
     return {
       ok: false,
       error: timedOut
-        ? `Request to ${new URL(request.url).hostname} timed out.`
-        : `Network error: ${error instanceof Error ? error.message : String(error)}`,
+        ? "That took too long to answer. Try again."
+        : "Couldn't reach that service. Check your connection and try again.",
     };
   }
   return {

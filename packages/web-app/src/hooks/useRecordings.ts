@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import type { SessionSummary } from "@repruvia/shared";
+import { toFriendlyMessage, type SessionSummary } from "@repruvia/shared";
 import { ExtensionUnavailableError, extensionBridge } from "@/lib/extensionBridge";
 import { deletePersistedReport, loadAllPersistedMeta } from "@/lib/reportPersistence";
 import { deleteCreatedTicket } from "@/lib/ticketPersistence";
@@ -60,7 +60,12 @@ export function useRecordings() {
       if (error instanceof ExtensionUnavailableError) {
         setState({ status: "unavailable", recordings: [], error: null });
       } else {
-        setState({ status: "error", recordings: [], error: (error as Error).message });
+        console.error("[repruvia] Couldn't load recordings:", error);
+        setState({
+          status: "error",
+          recordings: [],
+          error: toFriendlyMessage(error, "Couldn't load your recordings right now."),
+        });
       }
     }
   }, []);
@@ -96,7 +101,8 @@ export function useRecordings() {
         await deletePersistedReport(sessionId);
         await deleteCreatedTicket(sessionId);
       } catch (error) {
-        toast.error(`Couldn't delete the recording: ${(error as Error).message}`);
+        console.error("[repruvia] Couldn't delete the recording:", error);
+        toast.error(toFriendlyMessage(error, "Couldn't delete the recording."));
       } finally {
         void refresh();
       }

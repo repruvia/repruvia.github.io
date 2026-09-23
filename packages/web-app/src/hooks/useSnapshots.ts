@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import type { SnapshotSummary } from "@repruvia/shared";
+import { toFriendlyMessage, type SnapshotSummary } from "@repruvia/shared";
 import { ExtensionUnavailableError, extensionBridge } from "@/lib/extensionBridge";
 import { deletePersistedSnapshot, loadAllSnapshotMeta } from "@/lib/snapshotPersistence";
 import { deleteCreatedTicket } from "@/lib/ticketPersistence";
@@ -48,7 +48,12 @@ export function useSnapshots() {
       if (error instanceof ExtensionUnavailableError) {
         setState({ status: "unavailable", snapshots: [], error: null });
       } else {
-        setState({ status: "error", snapshots: [], error: (error as Error).message });
+        console.error("[repruvia] Couldn't load snapshots:", error);
+        setState({
+          status: "error",
+          snapshots: [],
+          error: toFriendlyMessage(error, "Couldn't load your snapshots right now."),
+        });
       }
     }
   }, []);
@@ -81,7 +86,8 @@ export function useSnapshots() {
         await deletePersistedSnapshot(snapshotId);
         await deleteCreatedTicket(snapshotId);
       } catch (error) {
-        toast.error(`Couldn't delete the snapshot: ${(error as Error).message}`);
+        console.error("[repruvia] Couldn't delete the snapshot:", error);
+        toast.error(toFriendlyMessage(error, "Couldn't delete the snapshot."));
       } finally {
         void refresh();
       }

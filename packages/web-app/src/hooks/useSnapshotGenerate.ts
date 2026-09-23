@@ -33,10 +33,10 @@ export function useSnapshotGenerate(): SnapshotGenerate {
     async (image: string, current: SnapshotDraft): Promise<SnapshotDraft> => {
       const settings = loadSettings();
       if (!isVisionProvider(settings)) {
-        throw new Error("Pick a vision-capable AI provider in Settings to generate from an image.");
+        throw new Error("Choose an AI that can read images in Settings to draft from a screenshot.");
       }
       const engine = buildActiveEngine(settings);
-      if (!engine) throw new Error("No AI provider is configured.");
+      if (!engine) throw new Error("No AI is set up yet. Turn one on in Settings.");
 
       setGenerating(true);
       try {

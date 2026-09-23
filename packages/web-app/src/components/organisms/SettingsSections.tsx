@@ -11,6 +11,7 @@ import {
 import { JiraIcon, LinearIcon } from "@/components/atoms/BrandIcons";
 import {
   AI_PROVIDER_MODELS,
+  KEYLESS_AI_PROVIDERS,
   type AiProviderConfig,
   type AiProviderId,
   type AppSettings,
@@ -208,9 +209,9 @@ export function AiSection({ settings, update }: SectionProps) {
       )}
 
       <p className="rounded-md border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
-        Choosing a provider sends report text — and, when refining a step or generating from a
-        snapshot, that screenshot — to that provider&apos;s API. API keys are stored locally in your
-        browser. AI is off until you pick and configure a provider.
+        Turning this on sends your report text to the AI you choose, using your own key. When you
+        refine a step or draft from a snapshot, that screenshot is sent too. Your key stays in this
+        browser and is never synced anywhere.
       </p>
     </div>
   );
@@ -227,18 +228,21 @@ function ProviderConfig({
 }) {
   const models = AI_PROVIDER_MODELS[provider];
   const isCustom = !models.some((m) => m.id === config.model);
+  const needsKey = !KEYLESS_AI_PROVIDERS.includes(provider);
   return (
     <div className="flex flex-col gap-4 rounded-md border p-4">
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="ai-key">API key</Label>
-        <Input
-          id="ai-key"
-          type="password"
-          value={config.apiKey ?? ""}
-          placeholder="Paste your API key"
-          onChange={(e) => onChange({ ...config, apiKey: e.target.value })}
-        />
-      </div>
+      {needsKey && (
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="ai-key">API key</Label>
+          <Input
+            id="ai-key"
+            type="password"
+            value={config.apiKey ?? ""}
+            placeholder="Paste your API key"
+            onChange={(e) => onChange({ ...config, apiKey: e.target.value })}
+          />
+        </div>
+      )}
       <div className="flex flex-col gap-1.5">
         <Label>Model</Label>
         <Select
@@ -260,7 +264,7 @@ function ProviderConfig({
         {isCustom && (
           <Input
             value={config.model}
-            placeholder="Custom model id"
+            placeholder="Model name"
             onChange={(e) => onChange({ ...config, model: e.target.value })}
           />
         )}

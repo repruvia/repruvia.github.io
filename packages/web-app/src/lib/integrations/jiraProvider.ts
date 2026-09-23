@@ -10,6 +10,13 @@ import {
 } from "@repruvia/shared";
 import { screenshotAttachmentName } from "@/lib/reportAttachments";
 import { markdownToAdf } from "./markdownToAdf.js";
+import {
+  browserTransport,
+  parseJson,
+  ticketTransport,
+  type HttpResult,
+  type HttpTransport,
+} from "./transport";
 
 export interface JiraCredentials {
   /** Site subdomain, e.g. "acme" for acme.atlassian.net. */
@@ -53,19 +60,20 @@ class JiraApiError extends TicketProviderError {
     readonly status: number,
     readonly body: JiraErrorBody | null,
   ) {
-    super("jira", describeJiraError(status, body));
+    // The raw Jira error body rides along as `cause` for the console only.
+    super("jira", describeJiraError(status), body);
   }
 }
 
-function describeJiraError(status: number, body: JiraErrorBody | null): string {
-  const details = [
-    ...(body?.errorMessages ?? []),
-    ...Object.entries(body?.errors ?? {}).map(([field, message]) => `${field}: ${message}`),
-  ].join(" ");
-  if (status === 401) return "Jira rejected the email/API token (401). Check them in Settings.";
-  if (status === 403) return `Jira denied access (403). ${details}`.trim();
-  if (status === 404) return `Jira resource not found (404) — check the site name in Settings. ${details}`.trim();
-  return `Jira responded ${status}. ${details}`.trim();
+/**
+ * One plain sentence per failure. Jira's own status codes and error body stay
+ * on the thrown error for the console, never in the copy.
+ */
+function describeJiraError(status: number): string {
+  if (status === 401) return "Jira rejected your email or API token. Check them in Settings.";
+  if (status === 403) return "Your Jira account isn't allowed to do that.";
+  if (status === 404) return "Jira couldn't find that — check the site name in Settings.";
+  return "Jira couldn't finish that request. Try again.";
 }
 
 export class JiraProvider implements TicketProvider {
@@ -73,7 +81,14 @@ export class JiraProvider implements TicketProvider {
   readonly displayName = "Jira";
   private readonly site: string;
 
-  constructor(private readonly creds: JiraCredentials) {
+  /**
+   * `http` routes through the extension service worker, which is CORS-free —
+   * Jira Cloud blocks most direct browser (CORS) calls.
+   */
+  constructor(
+    private readonly creds: JiraCredentials,
+    private readonly http: HttpTransport = ticketTransport(browserTransport),
+  ) {
     this.site = normalizeJiraSite(creds.site);
   }
 
@@ -188,7 +203,9 @@ export class JiraProvider implements TicketProvider {
   }
 
   private authHeader(): string {
-    return `Basic ${btoa(`${this.creds.email}:${this.creds.apiToken}`)}`;
+    // btoa only takes Latin-1; encode as UTF-8 first so non-ASCII emails work.
+    const bytes = new TextEncoder().encode(`${this.creds.email.trim()}:${this.creds.apiToken.trim()}`);
+    return `Basic ${btoa(String.fromCharCode(...bytes))}`;
   }
 
   /** Upload a file to the issue and return its attachment id (for inline embedding). */
@@ -198,57 +215,60 @@ export class JiraProvider implements TicketProvider {
   ): Promise<string | null> {
     const form = new FormData();
     form.append("file", attachment.data, attachment.filename);
-    const res = await fetch(
-      `${this.baseUrl()}/rest/api/3/issue/${issueId}/attachments`,
-      {
-        method: "POST",
-        headers: { Authorization: this.authHeader(), "X-Atlassian-Token": "no-check" },
-        body: form,
+    // Serialize the multipart body so it can travel through any transport; the
+    // boundary lives in the generated Content-Type.
+    const encoded = new Response(form);
+    const res = await this.send({
+      url: `${this.baseUrl()}/rest/api/3/issue/${issueId}/attachments`,
+      method: "POST",
+      headers: {
+        Authorization: this.authHeader(),
+        "X-Atlassian-Token": "no-check",
+        "Content-Type": encoded.headers.get("content-type") ?? "multipart/form-data",
       },
-    );
-    if (!res.ok) throw new JiraApiError(res.status, await readErrorBody(res));
-    const created = (await res.json().catch(() => [])) as { id: string }[];
-    return created[0]?.id ?? null;
+      body: await encoded.blob(),
+    });
+    return parseJson<{ id: string }[]>(res)?.[0]?.id ?? null;
   }
 
   private async api<T>(method: string, path: string, body?: unknown): Promise<T> {
-    let res: Response;
+    const res = await this.send({
+      url: `${this.baseUrl()}${path}`,
+      method,
+      headers: {
+        Authorization: this.authHeader(),
+        Accept: "application/json",
+        ...(body ? { "Content-Type": "application/json" } : {}),
+      },
+      body: body ? new Blob([JSON.stringify(body)], { type: "application/json" }) : undefined,
+    });
+    // Some endpoints (e.g. issue update) return 204 No Content.
+    if (!res.bodyText) return undefined as T;
+    const parsed = parseJson<T>(res);
+    if (parsed === undefined) {
+      throw new TicketProviderError(this.id, "Jira sent back an unexpected reply. Try again.");
+    }
+    return parsed;
+  }
+
+  /** Make the call; throw a descriptive error for transport failures and non-2xx replies. */
+  private async send(request: Parameters<HttpTransport>[0]): Promise<HttpResult> {
+    let res: HttpResult;
     try {
-      res = await fetch(`${this.baseUrl()}${path}`, {
-        method,
-        headers: {
-          Authorization: this.authHeader(),
-          Accept: "application/json",
-          ...(body ? { "Content-Type": "application/json" } : {}),
-        },
-        body: body ? JSON.stringify(body) : undefined,
-      });
+      res = await this.http(request);
     } catch (cause) {
-      // Jira Cloud blocks most browser-origin calls, which surface as a bare network error.
+      // Without the extension this is a direct browser call, which Jira Cloud
+      // usually blocks (a bare network error).
       throw new TicketProviderError(
         this.id,
-        "Couldn't reach Jira — check the site name, or your Jira may block browser (CORS) requests.",
+        "Couldn't reach Jira — check the site name in Settings, and that the Repruvia extension is installed and enabled.",
         cause,
       );
     }
-
-    if (!res.ok) throw new JiraApiError(res.status, await readErrorBody(res));
-    // Some endpoints (e.g. issue update) return 204 No Content.
-    const text = await res.text();
-    if (!text) return undefined as T;
-    try {
-      return JSON.parse(text) as T;
-    } catch (cause) {
-      throw new TicketProviderError(this.id, "Jira returned an unexpected (non-JSON) response.", cause);
+    if (res.status < 200 || res.status >= 300) {
+      throw new JiraApiError(res.status, parseJson<JiraErrorBody>(res) ?? null);
     }
-  }
-}
-
-async function readErrorBody(res: Response): Promise<JiraErrorBody | null> {
-  try {
-    return (await res.json()) as JiraErrorBody;
-  } catch {
-    return null;
+    return res;
   }
 }
 

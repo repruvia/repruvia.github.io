@@ -24,7 +24,7 @@ export function RecordingsLibrary({ recordings, onDelete, showHeading = true }: 
           <p className="font-medium">No recordings yet</p>
           <p className="max-w-sm text-sm text-muted-foreground">
             Open the page you want to test, click the Repruvia toolbar icon, and start recording.
-            Your sessions show up here.
+            Your recordings show up here.
           </p>
         </div>
       ) : (

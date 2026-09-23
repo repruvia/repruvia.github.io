@@ -27,7 +27,7 @@ export function openWebDb(): Promise<IDBDatabase> {
     let timedOut = false;
     const timer = setTimeout(() => {
       timedOut = true;
-      reject(new Error("Timed out opening local storage — close other Repruvia tabs and reload."));
+      reject(new Error("Repruvia couldn't open its saved data — close other Repruvia tabs and reload."));
     }, OPEN_TIMEOUT_MS);
     request.onupgradeneeded = () => {
       const db = request.result;
@@ -98,7 +98,12 @@ function awaitTransaction(tx: IDBTransaction): Promise<void> {
   return new Promise<void>((resolve, reject) => {
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
-    tx.onabort = () => reject(tx.error ?? new Error("Transaction aborted"));
+    tx.onabort = () =>
+      reject(
+        new Error("Your browser wouldn't finish that save. It may be out of space.", {
+          cause: tx.error,
+        }),
+      );
   });
 }
 
