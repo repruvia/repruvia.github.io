@@ -1,5 +1,6 @@
 import {
   SESSION_QUERY_PARAM,
+  withTimeout,
   type CaptureMessage,
   type DomEvent,
   type RecordingStatePayload,
@@ -25,6 +26,13 @@ interface ActiveRecording {
   windowId: number;
 }
 
+/**
+ * How long to wait for the interrupted-recording restore before giving up on
+ * it. Every message handler awaits `ready`, so a storage read that never
+ * settles would otherwise leave the popup stuck with no controls and no error.
+ */
+const RESTORE_TIMEOUT_MS = 5000;
+
 const UNREACHABLE_TAB_ERROR =
   "Can't record this page. Reload it (or open a normal web page) and start recording again.";
 
@@ -43,7 +51,13 @@ export class RecordingController {
   private readonly ready: Promise<void>;
 
   constructor(private readonly sessions: SessionRepository) {
-    this.ready = this.restore();
+    // Never let a stuck restore wedge the controller: on timeout we carry on
+    // without the interrupted recording (it stays saved and can still be opened).
+    this.ready = withTimeout(this.restore(), RESTORE_TIMEOUT_MS, "Restore timed out").catch(
+      (error: unknown) => {
+        console.warn("[Repruvia] Couldn't restore the active recording in time:", error);
+      },
+    );
   }
 
   /** Wait until state restored after a worker restart is in place. */
@@ -77,6 +91,7 @@ export class RecordingController {
       const environment = await captureEnvironment(tabId, url);
 
       this.recorder = SessionRecorder.create(this.sessions, this.screenshots, {
+        tabId,
         windowId: tab.windowId,
         tabUrl: url,
         environment,
@@ -205,12 +220,10 @@ export class RecordingController {
         return;
       }
       const tab = await chrome.tabs.get(active.tabId).catch(() => null);
-      this.recorder = SessionRecorder.resume(
-        this.sessions,
-        this.screenshots,
-        session,
-        tab?.windowId ?? active.windowId,
-      );
+      this.recorder = SessionRecorder.resume(this.sessions, this.screenshots, session, {
+        tabId: active.tabId,
+        windowId: tab?.windowId ?? active.windowId,
+      });
       this.tabId = active.tabId;
     } catch (error) {
       console.warn("[Repruvia] Couldn't restore the active recording:", error);

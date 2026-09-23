@@ -47,14 +47,22 @@ function openDb(): Promise<IDBDatabase> {
   return dbPromise;
 }
 
-/** Run a read against one store; resolves with the request's result. */
+/**
+ * Run a read against one store; resolves with the request's result. Watches the
+ * transaction as well as the request: a transaction can abort on its own (disk
+ * or quota trouble, a forced close) without the request ever failing, and a
+ * promise left pending there would wedge every caller awaiting it.
+ */
 function read<T>(storeName: string, run: (store: IDBObjectStore) => IDBRequest<T>): Promise<T> {
   return openDb().then(
     (db) =>
       new Promise<T>((resolve, reject) => {
-        const request = run(db.transaction(storeName, "readonly").objectStore(storeName));
+        const transaction = db.transaction(storeName, "readonly");
+        const request = run(transaction.objectStore(storeName));
         request.onsuccess = () => resolve(request.result);
         request.onerror = () => reject(request.error);
+        transaction.onerror = () => reject(transaction.error);
+        transaction.onabort = () => reject(transaction.error ?? new Error("Transaction aborted"));
       }),
   );
 }
@@ -79,14 +87,16 @@ function write(storeName: string, run: (store: IDBObjectStore) => void): Promise
 
 /**
  * Walk a store with a cursor, projecting each record as it's read so the whole
- * store (with its base64 images) is never held in memory at once.
+ * store (with its base64 images) is never held in memory at once. Like `read`,
+ * it settles on a transaction abort as well as a request error.
  */
 function collect<T, R>(storeName: string, project: (value: T) => R): Promise<R[]> {
   return openDb().then(
     (db) =>
       new Promise<R[]>((resolve, reject) => {
         const out: R[] = [];
-        const request = db.transaction(storeName, "readonly").objectStore(storeName).openCursor();
+        const transaction = db.transaction(storeName, "readonly");
+        const request = transaction.objectStore(storeName).openCursor();
         request.onsuccess = () => {
           const cursor = request.result;
           if (!cursor) {
@@ -97,6 +107,10 @@ function collect<T, R>(storeName: string, project: (value: T) => R): Promise<R[]
           cursor.continue();
         };
         request.onerror = () => reject(request.error);
+        // A mid-walk abort never fails the cursor request — settle here instead
+        // of leaving the walk hanging.
+        transaction.onerror = () => reject(transaction.error);
+        transaction.onabort = () => reject(transaction.error ?? new Error("Transaction aborted"));
       }),
   );
 }

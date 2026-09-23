@@ -21,3 +21,28 @@ export async function mapWithConcurrency<T, R>(
   await Promise.all(workers);
   return results;
 }
+
+/**
+ * Reject if `promise` hasn't settled within `ms`. A defensive wrapper for work
+ * that has no guaranteed answer — an IndexedDB open that never fires an event,
+ * a worker that stalls — so a caller waiting on it surfaces an error instead of
+ * hanging forever. The timer is always cleared, so a settled call leaves
+ * nothing pending behind it.
+ */
+export function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  message = "Timed out",
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(message)), ms);
+    const settle = (run: () => void): void => {
+      clearTimeout(timer);
+      run();
+    };
+    promise.then(
+      (value) => settle(() => resolve(value)),
+      (error: unknown) => settle(() => reject(error)),
+    );
+  });
+}

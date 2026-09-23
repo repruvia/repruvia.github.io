@@ -1,6 +1,6 @@
 import { idbDelete, idbGet, idbPut, STORES } from "./db";
 import { deleteCloudTicket, getCloudTicket, upsertCloudTicket, type TicketSourceKind } from "./cloud/ticketSync";
-import { currentUser } from "./firebase/auth";
+import { signedInUser } from "./firebase/auth";
 import type { ProviderId } from "./integrations/providerRegistry";
 
 export type { TicketSourceKind };
@@ -33,8 +33,8 @@ export async function loadCreatedTicket(sessionId: string): Promise<CreatedTicke
   } catch {
     // fall through to the account copy
   }
-  if (!currentUser()) return null;
   try {
+    if (!(await signedInUser())) return null;
     const cloud = await getCloudTicket(sessionId);
     if (!cloud) return null;
     const ticket: CreatedTicket = {
@@ -61,8 +61,8 @@ export async function saveCreatedTicket(
   } catch {
     // non-fatal
   }
-  if (!currentUser()) return;
   try {
+    if (!(await signedInUser())) return;
     await upsertCloudTicket({
       sourceId: sessionId,
       sourceKind,
@@ -82,8 +82,8 @@ export async function deleteCreatedTicket(sessionId: string): Promise<void> {
   } catch {
     // non-fatal
   }
-  if (!currentUser()) return;
   try {
+    if (!(await signedInUser())) return;
     await deleteCloudTicket(sessionId);
   } catch (error) {
     console.warn("[repruvia] Couldn't remove ticket from your account:", error);

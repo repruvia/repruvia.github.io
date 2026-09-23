@@ -7,6 +7,10 @@
  * produce a visible-but-empty notice or a dead action button: the notice is
  * only ever shown together with its message, and actions are only ever
  * shown together with something that can actually run.
+ *
+ * Failures go through here too, for the same reason: some views hide the
+ * status line, so an error written straight to it could land in a hidden
+ * element and never be read.
  */
 
 /** Whether the active tab's page can currently be recorded, and if not, why. */
@@ -36,18 +40,29 @@ const RESTRICTED_MESSAGE = "Repruvia can't record this page. Open a normal page 
 
 /**
  * Derives what the popup should show for a given recording state + page
- * availability.
+ * availability, plus the error to report (if any).
  *
  * A recording already in progress always keeps its working Stop control —
  * stopping is handled by the service worker and always succeeds, regardless
  * of whether this tab's content-script probe came back negative. Everything
  * else (Start, Snip, the notice) is gated on the page actually being
- * recordable right now.
+ * recordable right now. An `error` replaces the status text in every view, so
+ * it is always on screen.
  */
 export function resolvePopupView(
   recording: boolean,
   availability: PopupAvailability,
+  error: string | null = null,
 ): PopupViewModel {
+  const view = resolveStateView(recording, availability);
+  if (error === null) return view;
+  // An error always takes over the status line — including in the views that
+  // would otherwise hide it — so it can never be written somewhere invisible.
+  return { ...view, statusText: error, statusState: "recording" };
+}
+
+/** The view for a given recording state + availability, before any error. */
+function resolveStateView(recording: boolean, availability: PopupAvailability): PopupViewModel {
   if (recording || availability.kind === "ready") {
     return {
       statusText: recording ? "Recording…" : "Ready to record",

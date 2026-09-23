@@ -1,7 +1,7 @@
 import type * as FirestoreSdk from "firebase/firestore";
 import type { CollectionReference, DocumentReference, Firestore } from "firebase/firestore";
 import { firebaseApp, useFirebaseEmulators } from "@/lib/firebase/app";
-import { currentUser } from "@/lib/firebase/auth";
+import { signedInUser } from "@/lib/firebase/auth";
 
 /** The modular Firestore SDK, loaded on demand (see `cloudClient`). */
 export type FirestoreApi = typeof FirestoreSdk;
@@ -44,7 +44,7 @@ function connect(): Promise<{ db: Firestore; fs: FirestoreApi }> {
  * document lives under the caller's uid, which the security rules enforce.
  */
 export async function cloudClient(): Promise<CloudClient> {
-  const user = currentUser();
+  const user = await signedInUser();
   if (!user) throw new Error(SIGNED_OUT_MESSAGE);
   const { db, fs } = await connect();
   return { db, fs, uid: user.uid };

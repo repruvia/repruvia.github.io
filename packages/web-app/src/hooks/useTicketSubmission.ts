@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   exportReportToMarkdown,
   toFriendlyMessage,
@@ -8,7 +8,7 @@ import {
 } from "@repruvia/shared";
 import { buildProviders, type ProviderId } from "@/lib/integrations/providerRegistry";
 import { buildAttachments } from "@/lib/reportAttachments";
-import { loadSettings } from "@/lib/settings";
+import { loadSettings, subscribeSettings, type AppSettings } from "@/lib/settings";
 
 export type SubmissionPhase = "idle" | "connecting" | "ready" | "submitting" | "done" | "error";
 
@@ -28,26 +28,56 @@ const INITIAL: SubmissionState = {
   progress: 0,
 };
 
+/** Only the fields `buildProviders` reads: any other save leaves the instances alone. */
+function sameCredentials(a: AppSettings, b: AppSettings): boolean {
+  return (
+    a.linearToken === b.linearToken &&
+    a.jiraSite === b.jiraSite &&
+    a.jiraEmail === b.jiraEmail &&
+    a.jiraToken === b.jiraToken
+  );
+}
+
 /**
  * Orchestrates submitting a report to a ticket provider. Depends only on the
  * `TicketProvider` abstraction, so the UI is identical across providers.
  */
 export function useTicketSubmission(report: Report | null) {
   const [state, setState] = useState<SubmissionState>(INITIAL);
-  const providers = useMemo(() => buildProviders(loadSettings()), []);
 
-  const reset = useCallback(() => setState(INITIAL), []);
+  // Credentials can change under an open dialog — a sign-in pulls the Jira site
+  // from the account — so the providers are rebuilt when they do, and only then.
+  const [settings, setSettings] = useState<AppSettings>(loadSettings);
+  useEffect(
+    () => subscribeSettings((next) => setSettings((prev) => (sameCredentials(prev, next) ? prev : next))),
+    [],
+  );
+  const providers = useMemo(() => buildProviders(settings), [settings]);
+
+  // Connecting and submitting both run long enough for the user to cancel and
+  // start another one: only the newest request may write state, or a stale
+  // reply lands under a different provider.
+  const latestRequest = useRef(0);
+
+  const reset = useCallback(() => {
+    latestRequest.current++;
+    setState(INITIAL);
+  }, []);
 
   /** Authenticate and fetch the selectable containers (teams/projects). */
   const connect = useCallback(
     async (providerId: ProviderId) => {
+      const requestId = ++latestRequest.current;
+      const isStale = () => requestId !== latestRequest.current;
       const provider = providers[providerId];
       setState({ ...INITIAL, phase: "connecting" });
       try {
         await provider.authenticate();
         const containers = await provider.listContainers();
+        if (isStale()) return;
         setState({ ...INITIAL, phase: "ready", containers });
       } catch (error) {
+        if (isStale()) return;
         console.error("[repruvia] Couldn't connect to the ticket provider:", error);
         setState({
           ...INITIAL,
@@ -62,6 +92,8 @@ export function useTicketSubmission(report: Report | null) {
   const submit = useCallback(
     async (providerId: ProviderId, containerId: string, includeImages = true) => {
       if (!report) return;
+      const requestId = ++latestRequest.current;
+      const isStale = () => requestId !== latestRequest.current;
       const provider = providers[providerId];
       setState((s) => ({ ...s, phase: "submitting", progress: 0, error: null }));
       try {
@@ -76,10 +108,15 @@ export function useTicketSubmission(report: Report | null) {
           reportedBy,
           attachments: includeImages ? buildAttachments(report.session) : [],
           target: { containerId },
-          onProgress: (progress) => setState((s) => ({ ...s, progress })),
+          onProgress: (progress) => {
+            if (isStale()) return;
+            setState((s) => ({ ...s, progress }));
+          },
         });
+        if (isStale()) return;
         setState((s) => ({ ...s, phase: "done", result }));
       } catch (error) {
+        if (isStale()) return;
         console.error("[repruvia] Couldn't submit the ticket:", error);
         setState((s) => ({
           ...s,

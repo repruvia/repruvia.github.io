@@ -10,7 +10,8 @@ const INPUT_COALESCE_MS = 700;
  * Observes document-level interactions (event delegation) and emits normalized
  * `DomEvent`s. Consecutive `input`s on one field coalesce into a single step so
  * typing makes one step/screenshot, not one per keystroke; any other
- * interaction flushes the pending input first to preserve ordering.
+ * interaction — and the page going away — flushes the pending input first to
+ * preserve ordering.
  */
 export class DomEventObserver {
   private readonly sink: DomEventSink;
@@ -45,6 +46,10 @@ export class DomEventObserver {
     // SPA routers navigate with history.pushState, which fires neither event
     // above; the Navigation API reports every same-document entry change.
     pageNavigation()?.addEventListener("currententrychange", this.onNavigate);
+    // A full-page navigation (pressing Enter in a field, a form post, a link)
+    // tears this document down before the coalescing timer fires, so commit
+    // what's buffered while the page is still here.
+    window.addEventListener("pagehide", this.onPageHide);
     if (options.announcePage) this.emitNavigation();
   }
 
@@ -62,6 +67,7 @@ export class DomEventObserver {
     window.removeEventListener("popstate", this.onNavigate);
     window.removeEventListener("hashchange", this.onNavigate);
     pageNavigation()?.removeEventListener("currententrychange", this.onNavigate);
+    window.removeEventListener("pagehide", this.onPageHide);
     return pending;
   }
 
@@ -89,6 +95,16 @@ export class DomEventObserver {
     this.flushInput();
     const el = e.target;
     if (el instanceof Element) this.sink(buildDomEvent("change", el));
+  };
+
+  /**
+   * The document is being unloaded (or put in the back/forward cache). Emit the
+   * buffered typing step now — a fire-and-forget message still gets out during
+   * `pagehide`, whereas the pending timer dies with the page. `flushInput`
+   * clears the buffer, so a `stop()` that follows can't emit it a second time.
+   */
+  private readonly onPageHide = (): void => {
+    this.flushInput();
   };
 
   private readonly onNavigate = (): void => {

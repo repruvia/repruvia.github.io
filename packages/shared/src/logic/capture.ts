@@ -32,3 +32,34 @@ export function isDuplicateNetworkFailure(
 export function truncateText(value: string, max: number): string {
   return value.length > max ? `${value.slice(0, max)}…` : value;
 }
+
+/** Identifies the tab whose viewport a step screenshot should show. */
+export interface CaptureTarget {
+  tabId: number;
+  windowId: number;
+}
+
+/** The few tab fields needed to tell whether that tab is the one on screen. */
+export interface VisibleTabInfo {
+  id?: number;
+  windowId?: number;
+  active?: boolean;
+}
+
+/**
+ * True when `tab` is still the recorded tab AND the one currently on screen in
+ * the target window.
+ *
+ * Chrome's `captureVisibleTab` photographs whatever is active in a window, not
+ * a tab we name. Captures are deliberately delayed and throttled, so by the
+ * time one runs the user may have switched tabs (or a `target="_blank"` link
+ * may have opened one) — and the step would then carry a picture of an
+ * unrelated page. Checking this first lets a capture be skipped instead.
+ */
+export function isCaptureTargetVisible(
+  target: CaptureTarget,
+  tab: VisibleTabInfo | null | undefined,
+): boolean {
+  if (!tab) return false;
+  return tab.id === target.tabId && tab.windowId === target.windowId && tab.active === true;
+}

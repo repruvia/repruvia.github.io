@@ -12,6 +12,11 @@ import {
  * Popup controller. Thin view layer: it renders recording state and forwards
  * start/stop/snip intents to the service worker, which owns all the logic.
  *
+ * Nothing here decides what is visible. Every paint goes through
+ * `resolvePopupView`, which takes the recording state, the page's
+ * availability and the current error and returns exactly what to show — so an
+ * error can never be written into an element this file happens to be hiding.
+ *
  * It also probes the active tab for a reachable content script before
  * showing the recording controls — see `resolveAvailability`. Pages loaded
  * before the extension was installed/reloaded (or pages Chrome never injects
@@ -33,6 +38,8 @@ function send<T = RecordingStatePayload>(message: ControlMessage): Promise<T> {
   return chrome.runtime.sendMessage(message);
 }
 
+const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
 /**
  * Whether the active tab's page can ever be recorded, and if not, why. Same
  * `kind` values as the shared `PopupAvailability` (which drives what to
@@ -45,21 +52,40 @@ type Availability =
   | { kind: "reload"; tabId: number }
   | { kind: "restricted" };
 
+/** Everything a paint depends on: recording state, page availability, error. */
 let availability: Availability = { kind: "checking" };
+let state: RecordingStatePayload = { state: "idle", sessionId: null, stepCount: 0 };
+let error: string | null = null;
+
+/**
+ * The content script attaches at `document_idle`, so on a slow page — or a tab
+ * still restoring from a discard — the first ping can arrive before there is
+ * anyone to answer it. Retry briefly before declaring the page unrecordable.
+ */
+const PROBE_ATTEMPTS = 3;
+const PROBE_RETRY_MS = 250;
 
 /** Send a `TabCommand` straight to a tab, the same channel the service worker uses. */
 function sendTabCommand(tabId: number, command: TabCommand): Promise<TabCommandAck> {
   return chrome.tabs.sendMessage(tabId, command);
 }
 
-/** True when a content script answers a no-op ping in this tab. */
+/**
+ * True when a content script answers a no-op ping in this tab, retried over
+ * roughly half a second. Only the ISOLATED-world script listens for this; the
+ * MAIN-world one runs at `document_start` but has no `chrome.runtime`, so it
+ * can never answer and is not what this waits for.
+ */
 async function probeContentScript(tabId: number): Promise<boolean> {
-  try {
-    await sendTabCommand(tabId, { type: "PING" });
-    return true;
-  } catch {
-    return false;
+  for (let attempt = 0; attempt < PROBE_ATTEMPTS; attempt += 1) {
+    try {
+      await sendTabCommand(tabId, { type: "PING" });
+      return true;
+    } catch {
+      if (attempt < PROBE_ATTEMPTS - 1) await delay(PROBE_RETRY_MS);
+    }
   }
+  return false;
 }
 
 /** Classify the active tab: never-recordable, reachable, or needs a reload. */
@@ -84,10 +110,26 @@ function setNotice(text: string | null): void {
   noticeEl.hidden = text === null;
 }
 
-function render(state: RecordingStatePayload): void {
-  const recording = state.state === "recording";
-  const view = resolvePopupView(recording, availability);
+/** Apply a fresh recording state. A new state clears any previous error. */
+function render(next: RecordingStatePayload): void {
+  state = next;
+  error = next.error ?? null;
+  paint();
+}
 
+/** Report a failure. It stays on screen until the next state arrives. */
+function showError(message: string): void {
+  error = message;
+  paint();
+}
+
+/** The one place that touches the DOM, always from the shared view model. */
+function paint(): void {
+  const recording = state.state === "recording";
+  const view = resolvePopupView(recording, availability, error);
+
+  // The status line carries any error, so it is shown whenever there is text
+  // for it — never hidden with a message inside it.
   statusEl.hidden = view.statusText === null;
   if (view.statusText !== null) {
     statusEl.textContent = view.statusText;
@@ -111,13 +153,6 @@ function render(state: RecordingStatePayload): void {
 
   statsEl.hidden = !recording;
   stepCountEl.textContent = String(state.stepCount);
-
-  if (state.error) showError(state.error);
-}
-
-function showError(message: string): void {
-  statusEl.textContent = message;
-  statusEl.dataset.state = "recording"; // reuse the attention color for errors
 }
 
 toggleButton.addEventListener("click", async () => {
@@ -165,31 +200,22 @@ chrome.runtime.onMessage.addListener(
   },
 );
 
-// Don't flash buttons and yank them away: render the "checking" view (status
+// Don't flash buttons and yank them away: paint the "checking" view (status
 // line only, no actions, no notice) until the reachability probe and the
-// recording state both land. Derived from the same view model as `render()`
-// so this can't drift from it.
-const initialView = resolvePopupView(false, availability);
-statusEl.hidden = initialView.statusText === null;
-if (initialView.statusText !== null) {
-  statusEl.textContent = initialView.statusText;
-  statusEl.dataset.state = initialView.statusState;
-}
-setNotice(initialView.noticeText);
-noticeReloadButton.hidden = !initialView.noticeReloadVisible;
-actionsEl.hidden = !initialView.actionsVisible;
+// recording state both land.
+paint();
 
 void (async () => {
-  const [state] = await Promise.all([
+  const [next] = await Promise.all([
     send({ type: "GET_RECORDING_STATE" }).catch(() => null),
     resolveAvailability().then((result) => {
       availability = result;
     }),
   ]);
 
-  if (!state) {
+  if (!next) {
     showError("Couldn't reach Repruvia. Try reopening this popup.");
     return;
   }
-  render(state);
+  render(next);
 })();

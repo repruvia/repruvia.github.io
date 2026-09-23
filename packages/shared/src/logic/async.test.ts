@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mapWithConcurrency } from "./async.js";
+import { mapWithConcurrency, withTimeout } from "./async.js";
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 1));
 
@@ -29,5 +29,25 @@ describe("mapWithConcurrency", () => {
         return n;
       }),
     ).rejects.toThrow("boom");
+  });
+});
+
+describe("withTimeout", () => {
+  it("passes through a value that arrives in time", async () => {
+    await expect(withTimeout(Promise.resolve("done"), 50)).resolves.toBe("done");
+  });
+
+  it("passes through the original rejection", async () => {
+    await expect(withTimeout(Promise.reject(new Error("boom")), 50)).rejects.toThrow("boom");
+  });
+
+  it("rejects once the wait runs out", async () => {
+    const stuck = new Promise<never>(() => {});
+    await expect(withTimeout(stuck, 5, "took too long")).rejects.toThrow("took too long");
+  });
+
+  it("still settles from the wrapped promise after a slow start", async () => {
+    const slow = new Promise<string>((resolve) => setTimeout(() => resolve("late"), 5));
+    await expect(withTimeout(slow, 200)).resolves.toBe("late");
   });
 });

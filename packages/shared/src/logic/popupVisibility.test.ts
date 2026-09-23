@@ -29,6 +29,27 @@ describe("resolvePopupView", () => {
     }
   });
 
+  it("an error is never invisible: every view puts it on the status line", () => {
+    const message = "Couldn't save the recording.";
+    for (const recording of [true, false]) {
+      for (const availability of AVAILABILITIES) {
+        const view = resolvePopupView(recording, availability, message);
+        expect(view.statusText).toBe(message);
+        expect(view.statusState).toBe("recording");
+      }
+    }
+  });
+
+  it("keeps the page notice alongside an error, and drops the error once it clears", () => {
+    const message = "Couldn't save the recording.";
+    const failed = resolvePopupView(false, { kind: "restricted" }, message);
+    expect(failed.statusText).toBe(message);
+    expect(failed.noticeText).toBe(resolvePopupView(false, { kind: "restricted" }).noticeText);
+    expect(resolvePopupView(false, { kind: "restricted" }, null)).toEqual(
+      resolvePopupView(false, { kind: "restricted" }),
+    );
+  });
+
   it("never shows actions without a control that can actually work", () => {
     for (const recording of [true, false]) {
       for (const availability of AVAILABILITIES) {

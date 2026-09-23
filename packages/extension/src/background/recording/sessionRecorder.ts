@@ -9,6 +9,7 @@ import {
   type DomEvent,
   type Environment,
   type NetworkFailure,
+  type CaptureTarget,
   type ReactInfo,
   type Step,
 } from "@repruvia/shared";
@@ -37,7 +38,12 @@ interface BufferedReact {
  */
 export class SessionRecorder {
   private readonly session: RepruviaSession;
-  private windowId: number;
+  /**
+   * The tab being recorded and the window it currently sits in. Mutable and
+   * read at capture time (not when a capture is queued), so a tab dragged to
+   * another window retargets screenshots already in the queue.
+   */
+  private readonly target: CaptureTarget;
   private readonly reactBuffer: BufferedReact[] = [];
   private persistTimer: ReturnType<typeof setTimeout> | null = null;
   /** Captures still resolving; awaited on finish so none are lost. */
@@ -47,17 +53,17 @@ export class SessionRecorder {
     private readonly repository: SessionRepository,
     private readonly screenshots: ScreenshotCapturer,
     session: RepruviaSession,
-    windowId: number,
+    target: CaptureTarget,
   ) {
     this.session = session;
-    this.windowId = windowId;
+    this.target = { ...target };
   }
 
   /** Begin a brand-new session. */
   static create(
     repository: SessionRepository,
     screenshots: ScreenshotCapturer,
-    init: { windowId: number; tabUrl: string; environment: Environment },
+    init: { tabId: number; windowId: number; tabUrl: string; environment: Environment },
   ): SessionRecorder {
     const session: RepruviaSession = {
       id: uuid(),
@@ -69,7 +75,10 @@ export class SessionRecorder {
       consoleErrors: [],
       networkFailures: [],
     };
-    return new SessionRecorder(repository, screenshots, session, init.windowId);
+    return new SessionRecorder(repository, screenshots, session, {
+      tabId: init.tabId,
+      windowId: init.windowId,
+    });
   }
 
   /**
@@ -81,9 +90,9 @@ export class SessionRecorder {
     repository: SessionRepository,
     screenshots: ScreenshotCapturer,
     session: RepruviaSession,
-    windowId: number,
+    target: CaptureTarget,
   ): SessionRecorder {
-    return new SessionRecorder(repository, screenshots, session, windowId);
+    return new SessionRecorder(repository, screenshots, session, target);
   }
 
   get id(): string {
@@ -94,9 +103,13 @@ export class SessionRecorder {
     return this.session.steps.length;
   }
 
-  /** The recorded tab moved to another window; capture that window from now on. */
+  /**
+   * The recorded tab moved to another window; capture that window from now on.
+   * Captures already queued pick this up too — they resolve the target when
+   * they run, not when they were queued.
+   */
   setWindowId(windowId: number): void {
-    this.windowId = windowId;
+    this.target.windowId = windowId;
   }
 
   addEvent(event: DomEvent): Promise<void> {
@@ -104,7 +117,7 @@ export class SessionRecorder {
     // (captures are throttled). Track the work so `finish` can await it.
     const timestamp = Date.now();
     const reactComponent = this.matchReact(event.xpath);
-    const task = this.screenshots.capture(this.windowId).then((screenshot) => {
+    const task = this.screenshots.capture(() => this.target).then((screenshot) => {
       const step: Step = {
         id: uuid(),
         index: this.session.steps.length + 1,
