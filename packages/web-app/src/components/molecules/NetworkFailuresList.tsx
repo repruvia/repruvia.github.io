@@ -10,7 +10,7 @@ export function NetworkFailuresList({ failures, startedAt }: NetworkFailuresList
   if (failures.length === 0) {
     return (
       <p className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
-        No network failures were captured in this session.
+        No failed network requests in this recording.
       </p>
     );
   }

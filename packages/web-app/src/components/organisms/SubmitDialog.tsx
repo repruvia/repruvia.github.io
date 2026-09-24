@@ -36,6 +36,9 @@ export function SubmitDialog({ providerId, report, onClose, onCreated }: SubmitD
   const [includeImages, setIncludeImages] = useState(true);
 
   const open = providerId !== null;
+  // Closing mid-upload would reset the dialog while the issue is still being
+  // created — reopening could then submit a duplicate. Hold it open until done.
+  const busy = state.phase === "submitting";
   const provider = providerId ? providers[providerId] : null;
   const hasScreenshots = report?.session.steps.some((s) => s.screenshot) ?? false;
 
@@ -60,12 +63,12 @@ export function SubmitDialog({ providerId, report, onClose, onCreated }: SubmitD
   }, [open, providerId]);
 
   return (
-    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
+    <Dialog open={open} onOpenChange={(next) => !next && !busy && onClose()}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Submit to {provider?.displayName}</DialogTitle>
           <DialogDescription>
-            Create an issue with the report body, screenshots, and recording.
+            Create an issue with your report and its screenshots.
           </DialogDescription>
         </DialogHeader>
 
@@ -102,7 +105,7 @@ export function SubmitDialog({ providerId, report, onClose, onCreated }: SubmitD
                 <div className="flex flex-col gap-0.5">
                   <Label htmlFor="include-images">Include screenshots</Label>
                   <span className="text-xs text-muted-foreground">
-                    Embed step screenshots inline in the issue.
+                    Add every step screenshot to the issue.
                   </span>
                 </div>
                 <Switch
@@ -133,7 +136,7 @@ export function SubmitDialog({ providerId, report, onClose, onCreated }: SubmitD
             <Button onClick={onClose}>Done</Button>
           ) : (
             <>
-              <Button variant="ghost" onClick={onClose}>
+              <Button variant="ghost" onClick={onClose} disabled={busy}>
                 Cancel
               </Button>
               <Button

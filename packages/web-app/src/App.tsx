@@ -5,6 +5,7 @@ import { AppFooter } from "@/components/organisms/AppFooter";
 import { Toaster } from "@/components/ui/sonner";
 import { ReportBuilderSkeleton } from "@/components/molecules/ReportBuilderSkeleton";
 import { ThemeProvider } from "@/lib/theme";
+import { AuthProvider } from "@/hooks/auth";
 import { HomePage } from "@/pages/HomePage";
 import { SettingsPage } from "@/pages/SettingsPage";
 import { useSessionId } from "@/hooks/useSessionLoader";
@@ -43,19 +44,21 @@ function RootRoute() {
 export function App() {
   return (
     <ThemeProvider>
-      <BrowserRouter basename={import.meta.env.BASE_URL}>
-        <div className="flex min-h-screen flex-col">
-          <AppHeader />
-          <main className="flex-1">
-            <Routes>
-              <Route path="/" element={<RootRoute />} />
-              <Route path="/settings" element={<SettingsPage />} />
-            </Routes>
-          </main>
-          <AppFooter />
-        </div>
-        <Toaster />
-      </BrowserRouter>
+      <AuthProvider>
+        <BrowserRouter basename={import.meta.env.BASE_URL}>
+          <div className="flex min-h-screen flex-col">
+            <AppHeader />
+            <main className="flex-1">
+              <Routes>
+                <Route path="/" element={<RootRoute />} />
+                <Route path="/settings" element={<SettingsPage />} />
+              </Routes>
+            </main>
+            <AppFooter />
+          </div>
+          <Toaster />
+        </BrowserRouter>
+      </AuthProvider>
     </ThemeProvider>
   );
 }

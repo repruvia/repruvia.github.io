@@ -1,5 +1,6 @@
 import {
   exportReportToMarkdown,
+  mapWithConcurrency,
   severityToLinearPriority,
   TicketProviderError,
   type ProviderContainer,
@@ -8,9 +9,19 @@ import {
   type TicketProvider,
 } from "@repruvia/shared";
 import { screenshotAttachmentName } from "@/lib/reportAttachments";
-import { extensionBridge } from "@/lib/extensionBridge";
+import {
+  browserTransport,
+  extensionTransport,
+  parseJson,
+  ticketTransport,
+  type HttpResult,
+  type HttpTransport,
+} from "./transport";
 
 const LINEAR_API = "https://api.linear.app/graphql";
+/** Linear rejects issue titles longer than this. */
+const TITLE_MAX = 255;
+const UPLOAD_CONCURRENCY = 3;
 
 interface GraphQLResponse<T> {
   data?: T;
@@ -26,7 +37,18 @@ export class LinearProvider implements TicketProvider {
   readonly id = "linear";
   readonly displayName = "Linear";
 
-  constructor(private token: string) {}
+  /**
+   * Both routes go through the extension (CORS-free). `api` carries GraphQL
+   * calls, falling back to a direct browser fetch when the extension isn't
+   * reachable — Linear allows browser CORS there. `uploads` carries the PUT to
+   * Linear's signed storage URL, which is CORS-blocked from pages and so has
+   * no browser fallback.
+   */
+  constructor(
+    private token: string,
+    private readonly api: HttpTransport = ticketTransport(browserTransport),
+    private readonly uploads: HttpTransport = extensionTransport,
+  ) {}
 
   isAuthenticated(): boolean {
     return this.token.trim().length > 0;
@@ -40,7 +62,7 @@ export class LinearProvider implements TicketProvider {
 
   async listContainers(): Promise<ProviderContainer[]> {
     const data = await this.query<{ teams: { nodes: ProviderContainer[] } }>(
-      `query { teams { nodes { id name } } }`,
+      `query { teams(first: 250) { nodes { id name } } }`,
     );
     return data.teams.nodes;
   }
@@ -53,7 +75,7 @@ export class LinearProvider implements TicketProvider {
     // Best-effort: a failed upload just drops that one image, not the issue.
     const assetByName = new Map<string, string>();
     let uploaded = 0;
-    for (const attachment of attachments) {
+    await mapWithConcurrency(attachments, UPLOAD_CONCURRENCY, async (attachment) => {
       try {
         assetByName.set(attachment.filename, await this.uploadFile(attachment));
       } catch (err) {
@@ -62,7 +84,7 @@ export class LinearProvider implements TicketProvider {
       }
       uploaded += 1;
       onProgress?.(uploaded / (attachments.length + 1));
-    }
+    });
     if (attachments.length > 0 && assetByName.size === 0) {
       console.warn(
         "[repruvia] No screenshots uploaded to Linear — the issue will have no inline images. See the error(s) above.",
@@ -87,14 +109,14 @@ export class LinearProvider implements TicketProvider {
       {
         input: {
           teamId: target.containerId,
-          title: report.meta.title || "Bug report",
+          title: toTitle(report.meta.title),
           description,
           priority: severityToLinearPriority(report.meta.severity),
         },
       },
     );
 
-    if (!created.issueCreate.success) {
+    if (!created.issueCreate?.success || !created.issueCreate.issue) {
       throw new TicketProviderError(this.id, "Linear rejected the issue.");
     }
     const issue = created.issueCreate.issue;
@@ -127,48 +149,78 @@ export class LinearProvider implements TicketProvider {
     );
 
     if (!upload.fileUpload?.success || !upload.fileUpload.uploadFile) {
-      throw new TicketProviderError(this.id, "Linear fileUpload mutation was rejected.");
+      throw new TicketProviderError(this.id, "Linear wouldn't accept the screenshot upload.");
     }
     const { uploadUrl, assetUrl, headers } = upload.fileUpload.uploadFile;
-    // PUT to Linear storage is CORS-blocked from a web-app origin, so route it
-    // through the extension service worker (CORS-free via host_permissions).
-    let res: { status: number; bodyText: string };
+    let res: HttpResult;
     try {
-      res = await extensionBridge.proxyFetch({
+      res = await this.uploads({
         url: uploadUrl,
         method: "PUT",
-        headers: Object.fromEntries(headers.map((h) => [h.key, h.value])),
+        headers: {
+          "Content-Type": attachment.mimeType,
+          ...Object.fromEntries(headers.map((h) => [h.key, h.value])),
+        },
         body: attachment.data,
       });
     } catch (cause) {
-      throw new TicketProviderError(this.id, "Screenshot upload failed (extension proxy).", cause);
+      throw new TicketProviderError(this.id, "Couldn't upload a screenshot to Linear.", cause);
     }
     if (res.status < 200 || res.status >= 300) {
       throw new TicketProviderError(
         this.id,
-        `Screenshot upload failed (${res.status}). ${res.bodyText.slice(0, 200)}`,
+        "Couldn't upload a screenshot to Linear.",
+        `${res.status} ${res.bodyText.slice(0, 200)}`,
       );
     }
     return assetUrl;
   }
 
   private async query<T>(query: string, variables?: Record<string, unknown>): Promise<T> {
-    let res: Response;
+    let res: HttpResult;
     try {
-      res = await fetch(LINEAR_API, {
+      res = await this.api({
+        url: LINEAR_API,
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: this.token },
-        body: JSON.stringify({ query, variables }),
+        body: new Blob([JSON.stringify({ query, variables })], { type: "application/json" }),
       });
     } catch (cause) {
-      throw new TicketProviderError(this.id, "Network error talking to Linear.", cause);
+      throw new TicketProviderError(
+        this.id,
+        "Couldn't reach Linear. Check your connection and try again.",
+        cause,
+      );
     }
 
-    const body = (await res.json()) as GraphQLResponse<T>;
-    if (body.errors?.length) {
-      throw new TicketProviderError(this.id, body.errors.map((e) => e.message).join("; "));
+    if (res.status === 401) {
+      throw new TicketProviderError(this.id, "Linear rejected your API key. Check it in Settings.");
     }
-    if (!body.data) throw new TicketProviderError(this.id, "Empty response from Linear.");
+    // Gateway/rate-limit pages come back as HTML, not GraphQL JSON.
+    const body = parseJson<GraphQLResponse<T>>(res);
+    if (!body) {
+      throw new TicketProviderError(
+        this.id,
+        "Linear sent back an unexpected reply. Try again.",
+        `${res.status} ${res.bodyText.slice(0, 200)}`,
+      );
+    }
+    if (body.errors?.length) {
+      throw new TicketProviderError(
+        this.id,
+        "Linear turned that request down. Check your API key and team, then try again.",
+        body.errors.map((e) => e.message).join("; "),
+      );
+    }
+    if (!body.data) {
+      throw new TicketProviderError(this.id, "Linear sent back an empty reply. Try again.");
+    }
     return body.data;
   }
+}
+
+/** Single-line, length-capped issue title. */
+function toTitle(title: string): string {
+  const line = title.replace(/\s+/g, " ").trim() || "Bug report";
+  return line.length > TITLE_MAX ? `${line.slice(0, TITLE_MAX - 1)}…` : line;
 }

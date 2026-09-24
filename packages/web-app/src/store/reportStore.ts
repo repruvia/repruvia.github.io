@@ -39,8 +39,17 @@ const DEFAULT_META: ReportMeta = { title: "", description: "", severity: "medium
 
 function deriveTitle(session: RepruviaSession): string {
   // Default title from the first step's path, to orient the tester.
-  const firstPath = session.steps[0]?.event.pathname ?? new URL(session.tabUrl).pathname;
-  return `Bug on ${firstPath}`;
+  const firstPath = session.steps[0]?.event.pathname || pathOf(session.tabUrl);
+  return firstPath ? `Bug on ${firstPath}` : "Bug report";
+}
+
+/** Path of a URL; empty when the tab had no URL (e.g. a restricted page). */
+function pathOf(url: string): string {
+  try {
+    return new URL(url).pathname;
+  } catch {
+    return "";
+  }
 }
 
 function withSession(
@@ -118,14 +127,26 @@ export const useReportStore = create<ReportState>((set) => ({
 // Persist the editable layer to IndexedDB on change, debounced so rapid typing
 // or a multi-field AI refine writes once.
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
+let pendingSave: { id: string; meta: ReportMeta; steps: Step[] } | null = null;
+
+/** Write any debounced edit now (on session switch, tab hide, or unmount). */
+export function flushReportSave(): void {
+  if (saveTimer) {
+    clearTimeout(saveTimer);
+    saveTimer = null;
+  }
+  const save = pendingSave;
+  pendingSave = null;
+  if (save) void savePersistedReport(save.id, save.meta, save.steps);
+}
+
 useReportStore.subscribe((state, prev) => {
+  // Opening a different session: commit the previous one's last edit first,
+  // otherwise resetting the timer below would silently drop it.
+  if (pendingSave && pendingSave.id !== state.session?.id) flushReportSave();
   if (!state.session) return;
   if (state.session === prev.session && state.meta === prev.meta) return;
-  const { id } = state.session;
-  const { meta } = state;
-  const { steps } = state.session;
+  pendingSave = { id: state.session.id, meta: state.meta, steps: state.session.steps };
   if (saveTimer) clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => {
-    void savePersistedReport(id, meta, steps);
-  }, 400);
+  saveTimer = setTimeout(flushReportSave, 400);
 });

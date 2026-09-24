@@ -86,3 +86,13 @@ describe("exportReportToMarkdown screenshots", () => {
     expect(md).not.toContain("![Step 1]()");
   });
 });
+
+describe("exportReportToMarkdown headings", () => {
+  it("keeps multi-line titles and step edits on their heading line", () => {
+    const r = report([{ ...step(1, null), editedDescription: "Clicked\nSave\r\n  twice" }]);
+    r.meta.title = "Crash\non save";
+    const md = exportReportToMarkdown(r, { screenshots: "omit" });
+    expect(md).toContain("# Bug Report: Crash on save\n");
+    expect(md).toContain("### Step 1 — Clicked Save twice\n");
+  });
+});

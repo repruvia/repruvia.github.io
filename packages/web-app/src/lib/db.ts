@@ -17,10 +17,18 @@ export const STORES = {
 
 let dbPromise: Promise<IDBDatabase> | null = null;
 
+/** Give up on an open that never settles (e.g. blocked by another tab mid-upgrade). */
+const OPEN_TIMEOUT_MS = 5000;
+
 export function openWebDb(): Promise<IDBDatabase> {
   if (dbPromise) return dbPromise;
-  dbPromise = new Promise((resolve, reject) => {
+  dbPromise = new Promise<IDBDatabase>((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      reject(new Error("Repruvia couldn't open its saved data — close other Repruvia tabs and reload."));
+    }, OPEN_TIMEOUT_MS);
     request.onupgradeneeded = () => {
       const db = request.result;
       if (!db.objectStoreNames.contains(STORES.REPORTS)) {
@@ -36,8 +44,33 @@ export function openWebDb(): Promise<IDBDatabase> {
         db.createObjectStore(STORES.SNAPSHOTS, { keyPath: "snapshotId" });
       }
     };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      clearTimeout(timer);
+      const db = request.result;
+      if (timedOut) {
+        // We already gave up on this open; don't leak a connection nobody uses.
+        db.close();
+        return;
+      }
+      // An older tab holding the connection would block a newer version's
+      // upgrade (blank app in the new tab) — step aside and reopen on next use.
+      db.onversionchange = () => {
+        db.close();
+        dbPromise = null;
+      };
+      db.onclose = () => {
+        dbPromise = null;
+      };
+      resolve(db);
+    };
+    request.onerror = () => {
+      clearTimeout(timer);
+      reject(request.error);
+    };
+  }).catch((error: unknown) => {
+    // Don't memoize a failed open — let the next call retry.
+    dbPromise = null;
+    throw error;
   });
   return dbPromise;
 }
@@ -60,22 +93,30 @@ export async function idbGetAll<T>(store: string): Promise<T[]> {
   });
 }
 
-export async function idbPut(store: string, value: unknown, key?: IDBValidKey): Promise<void> {
-  const db = await openWebDb();
-  await new Promise<void>((resolve, reject) => {
-    const tx = db.transaction(store, "readwrite");
-    tx.objectStore(store).put(value, key);
+/** Resolve on commit; reject on error or abort (quota exceeded aborts without a request error). */
+function awaitTransaction(tx: IDBTransaction): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
+    tx.onabort = () =>
+      reject(
+        new Error("Your browser wouldn't finish that save. It may be out of space.", {
+          cause: tx.error,
+        }),
+      );
   });
+}
+
+export async function idbPut(store: string, value: unknown, key?: IDBValidKey): Promise<void> {
+  const db = await openWebDb();
+  const tx = db.transaction(store, "readwrite");
+  tx.objectStore(store).put(value, key);
+  await awaitTransaction(tx);
 }
 
 export async function idbDelete(store: string, key: IDBValidKey): Promise<void> {
   const db = await openWebDb();
-  await new Promise<void>((resolve, reject) => {
-    const tx = db.transaction(store, "readwrite");
-    tx.objectStore(store).delete(key);
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
+  const tx = db.transaction(store, "readwrite");
+  tx.objectStore(store).delete(key);
+  await awaitTransaction(tx);
 }

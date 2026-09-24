@@ -13,33 +13,38 @@ const LEGACY_LS_KEY = "repruvia.settings";
 
 export type AiProviderId = "openai" | "anthropic" | "gemini" | "grok" | "groq";
 
+/** Providers that work without the user supplying an API key. Currently none — every
+ * supported provider needs the user's own API key, so AI defaults to off until they add one. */
+export const KEYLESS_AI_PROVIDERS: readonly AiProviderId[] = [];
+
 /** Selectable models per provider — only vision-capable ones (custom ids still allowed in UI). */
 export const AI_PROVIDER_MODELS: Record<AiProviderId, { id: string; label: string }[]> = {
   openai: [
-    { id: "gpt-4o-mini", label: "GPT-4o mini — fast, vision" },
-    { id: "gpt-4o", label: "GPT-4o — vision" },
-    { id: "gpt-4.1-mini", label: "GPT-4.1 mini — fast, vision" },
-    { id: "gpt-4.1", label: "GPT-4.1 — vision" },
+    { id: "gpt-4o-mini", label: "GPT-4o mini — fast, reads images" },
+    { id: "gpt-4o", label: "GPT-4o — reads images" },
+    { id: "gpt-4.1-mini", label: "GPT-4.1 mini — fast, reads images" },
+    { id: "gpt-4.1", label: "GPT-4.1 — reads images" },
   ],
   anthropic: [
-    { id: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5 — fast, vision" },
-    { id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6 — vision" },
-    { id: "claude-opus-4-8", label: "Claude Opus 4.8 — best, vision" },
+    { id: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5 — fast, reads images" },
+    { id: "claude-sonnet-4-6", label: "Claude Sonnet 4.6 — reads images" },
+    { id: "claude-opus-4-8", label: "Claude Opus 4.8 — best, reads images" },
   ],
   gemini: [
-    { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash — fast, vision" },
-    { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro — vision" },
-    { id: "gemini-2.0-flash", label: "Gemini 2.0 Flash — vision" },
-    { id: "gemini-1.5-flash", label: "Gemini 1.5 Flash — vision" },
+    { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash — fast, reads images" },
+    { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro — reads images" },
+    { id: "gemini-2.0-flash", label: "Gemini 2.0 Flash — reads images" },
+    { id: "gemini-1.5-flash", label: "Gemini 1.5 Flash — reads images" },
   ],
   grok: [{ id: "grok-2-vision-1212", label: "Grok 2 Vision" }],
   groq: [
-    { id: "meta-llama/llama-4-scout-17b-16e-instruct", label: "Llama 4 Scout — vision" },
-    { id: "meta-llama/llama-4-maverick-17b-128e-instruct", label: "Llama 4 Maverick — vision" },
+    { id: "meta-llama/llama-4-scout-17b-16e-instruct", label: "Llama 4 Scout — reads images" },
+    { id: "meta-llama/llama-4-maverick-17b-128e-instruct", label: "Llama 4 Maverick — reads images" },
   ],
 };
 
-const PROVIDER_IDS = Object.keys(AI_PROVIDER_MODELS) as AiProviderId[];
+/** Every provider id the app knows about — used to drop ids from older/newer builds. */
+export const AI_PROVIDER_IDS = Object.keys(AI_PROVIDER_MODELS) as AiProviderId[];
 
 export interface AiProviderConfig {
   apiKey?: string;
@@ -47,12 +52,14 @@ export interface AiProviderConfig {
 }
 
 export interface AiSettings {
-  /** null = AI off (the default until the user configures a provider). */
+  /** null = AI off. */
   activeProvider: AiProviderId | null;
   providers: Record<AiProviderId, AiProviderConfig>;
 }
 
 const AI_DEFAULTS: AiSettings = {
+  // AI is off by default — every supported provider needs the user's own API
+  // key, so there's nothing to turn on until they add one in Settings.
   activeProvider: null,
   providers: {
     openai: { apiKey: "", model: "gpt-4o-mini" },
@@ -83,10 +90,11 @@ const DEFAULTS: AppSettings = {
   ai: AI_DEFAULTS,
 };
 
-/** AI is usable iff an active (cloud) provider is selected with an API key. */
+/** AI is usable iff a provider is selected and (unless keyless) has an API key. */
 export function isAiConfigured(settings: AppSettings): boolean {
   const id = settings.ai.activeProvider;
   if (!id) return false;
+  if (KEYLESS_AI_PROVIDERS.includes(id)) return Boolean(settings.ai.providers[id]?.model?.trim());
   return Boolean(settings.ai.providers[id]?.apiKey?.trim());
 }
 
@@ -96,10 +104,25 @@ export function loadSettings(): AppSettings {
   return cache;
 }
 
+type SettingsListener = (settings: AppSettings, origin: SettingsOrigin) => void;
+/** "local" = the user saved in this tab; "cloud" = applied from their synced account. */
+export type SettingsOrigin = "local" | "cloud";
+const listeners = new Set<SettingsListener>();
+
+/** Observe saves (cloud sync pushes local ones; an open settings form refreshes on cloud ones). */
+export function subscribeSettings(listener: SettingsListener): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
 /** Update the cache and persist to IndexedDB (fire-and-forget). */
-export function saveSettings(settings: AppSettings): void {
+export function saveSettings(settings: AppSettings, origin: SettingsOrigin = "local"): void {
   cache = { ...settings };
-  void idbPut(STORES.SETTINGS, cache, SETTINGS_KEY);
+  for (const listener of listeners) listener(cache, origin);
+  idbPut(STORES.SETTINGS, cache, SETTINGS_KEY).catch((error: unknown) => {
+    // The in-memory cache still applies for this tab; it just won't survive a reload.
+    console.warn("[repruvia] Couldn't persist settings:", error);
+  });
 }
 
 /**
@@ -128,18 +151,27 @@ export async function hydrateSettings(): Promise<void> {
   }
 }
 
-/** Normalize a stored AI block; drops the removed on-device provider. */
+/** Normalize a stored AI block; drops any provider id that no longer exists (e.g. a
+ * previously removed provider such as the keyless Firebase/Gemini one). */
 function migrateAi(raw: Partial<AppSettings>): AiSettings {
   const storedProviders = raw.ai?.providers as
     | Partial<Record<AiProviderId, AiProviderConfig>>
     | undefined;
   const providers = Object.fromEntries(
-    PROVIDER_IDS.map((id) => [id, { ...AI_DEFAULTS.providers[id], ...storedProviders?.[id] }]),
+    AI_PROVIDER_IDS.map((id) => [id, { ...AI_DEFAULTS.providers[id], ...storedProviders?.[id] }]),
   ) as Record<AiProviderId, AiProviderConfig>;
 
-  // On-device provider was removed — fall back to "off" rather than an invalid id.
+  // A removed provider (e.g. old settings with `activeProvider: "firebase"`) falls
+  // back to "off" rather than an invalid id. A stored `null` is the user's choice
+  // (AI off) and is kept; only a missing AI block (older settings) picks up the
+  // current default.
   const stored = raw.ai?.activeProvider;
-  const activeProvider = stored && PROVIDER_IDS.includes(stored) ? stored : null;
+  const activeProvider =
+    raw.ai === undefined
+      ? AI_DEFAULTS.activeProvider
+      : stored && AI_PROVIDER_IDS.includes(stored)
+        ? stored
+        : null;
 
   return { activeProvider, providers };
 }

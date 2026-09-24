@@ -8,7 +8,7 @@ export type ProviderId = "linear" | "jira";
 /** Adding a provider means one entry here + one class — submission UI is untouched. */
 export function buildProviders(settings: AppSettings): Record<ProviderId, TicketProvider> {
   return {
-    linear: new LinearProvider(settings.linearToken),
+    linear: new LinearProvider(settings.linearToken.trim()),
     jira: new JiraProvider({
       site: settings.jiraSite,
       email: settings.jiraEmail,

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import { toFriendlyMessage } from "@repruvia/shared";
 import { Button } from "@/components/ui/button";
 import { useAiRefine } from "@/hooks/aiRefine";
 import type { RefineField } from "@/lib/ai/reportPrompt";
@@ -37,7 +38,8 @@ export function AiRefineButton({ field, text, screenshot, onResult, label, class
         try {
           onResult(await refine(field, text, screenshot));
         } catch (error) {
-          toast.error((error as Error).message);
+          console.error("[repruvia] AI refine failed:", error);
+          toast.error(toFriendlyMessage(error, "AI couldn't finish that. Try again."));
         } finally {
           setPending(false);
         }

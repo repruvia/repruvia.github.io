@@ -104,11 +104,22 @@ export function beginSnapshotSelection(): void {
     );
   };
 
+  const cancel = () => {
+    cleanup();
+    send({ type: "CANCEL_SNAPSHOT" });
+  };
+
   const onKeyDown = (e: KeyboardEvent) => {
-    if (e.key === "Escape") {
-      cleanup();
-      send({ type: "CANCEL_SNAPSHOT" });
-    }
+    if (e.key === "Escape") cancel();
+  };
+
+  // A gesture the browser took over (touch scroll, OS dialog) or leaving the
+  // tab mid-drag would otherwise strand the overlay over the page.
+  const onPointerCancel = () => {
+    if (dragging) cancel();
+  };
+  const onVisibilityChange = () => {
+    if (document.visibilityState === "hidden") cancel();
   };
 
   function cleanup(): void {
@@ -116,14 +127,41 @@ export function beginSnapshotSelection(): void {
     root.removeEventListener("pointerdown", onPointerDown);
     window.removeEventListener("pointermove", onPointerMove);
     window.removeEventListener("pointerup", onPointerUp);
+    window.removeEventListener("pointercancel", onPointerCancel);
     window.removeEventListener("keydown", onKeyDown, true);
+    document.removeEventListener("visibilitychange", onVisibilityChange);
     root.remove();
   }
 
   root.addEventListener("pointerdown", onPointerDown);
   window.addEventListener("pointermove", onPointerMove);
   window.addEventListener("pointerup", onPointerUp);
+  window.addEventListener("pointercancel", onPointerCancel);
   window.addEventListener("keydown", onKeyDown, true);
+  document.addEventListener("visibilitychange", onVisibilityChange);
+}
+
+/** Briefly show why a snip failed (the overlay is already gone by then). */
+export function showSnapshotError(message: string): void {
+  const toast = document.createElement("div");
+  toast.setAttribute("role", "alert");
+  toast.textContent = message;
+  Object.assign(toast.style, {
+    position: "fixed",
+    top: "16px",
+    left: "50%",
+    transform: "translateX(-50%)",
+    zIndex: Z_INDEX,
+    padding: "8px 14px",
+    borderRadius: "8px",
+    background: "rgba(127,29,29,0.95)",
+    color: "#fef2f2",
+    font: "13px/1.4 system-ui, -apple-system, 'Segoe UI', sans-serif",
+    boxShadow: "0 6px 24px rgba(0,0,0,0.4)",
+    pointerEvents: "none",
+  } satisfies Partial<CSSStyleDeclaration>);
+  document.documentElement.appendChild(toast);
+  setTimeout(() => toast.remove(), 4000);
 }
 
 function drawBox(box: HTMLDivElement, rect: CaptureRect): void {

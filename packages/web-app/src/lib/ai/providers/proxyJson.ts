@@ -14,11 +14,17 @@ export async function proxyJson(
     body,
   });
   if (res.status < 200 || res.status >= 300) {
-    throw new Error(`AI request failed (${res.status}). ${res.bodyText.slice(0, 300)}`);
+    // The status and body stay on `cause` for the console; the message stays plain.
+    throw new Error(
+      res.status === 401 || res.status === 403
+        ? "The AI provider rejected your API key. Check it in Settings."
+        : "The AI provider couldn't finish that request. Try again.",
+      { cause: `${res.status} ${res.bodyText.slice(0, 300)}` },
+    );
   }
   try {
     return JSON.parse(res.bodyText);
   } catch {
-    throw new Error("AI request returned a non-JSON response.");
+    throw new Error("The AI provider sent back an unexpected reply. Try again.");
   }
 }

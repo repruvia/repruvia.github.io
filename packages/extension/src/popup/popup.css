@@ -11,6 +11,20 @@
   box-sizing: border-box;
 }
 
+/*
+ * Several containers below (`.popup__notice`, `.popup__actions`,
+ * `.popup__stats`) set their own `display: flex`. An author stylesheet rule
+ * always wins over the browser's built-in `[hidden] { display: none }` rule
+ * regardless of selector specificity, so without this, setting `.hidden =
+ * true` in popup.ts on any of them does nothing — the element stays visibly
+ * laid out (e.g. an empty bordered notice box with no text). This rule
+ * restores `hidden` as the one thing that always wins, for every element,
+ * present or future, so no state can render a visible-but-empty container.
+ */
+[hidden] {
+  display: none !important;
+}
+
 body {
   margin: 0;
   width: 280px;
@@ -105,6 +119,48 @@ body {
 .popup__button--snip:hover {
   opacity: 1;
   background: #1b212b;
+}
+
+.popup__button--ghost {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid #2b323d;
+  padding: 8px 14px;
+  font-size: 13px;
+}
+
+.popup__button--ghost:hover {
+  opacity: 1;
+  background: #1b212b;
+  color: var(--fg);
+}
+
+.popup__actions {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  gap: 12px;
+}
+
+/* Shown instead of the actions when this tab's page can't be recorded. */
+.popup__notice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #2b323d;
+  border-radius: 8px;
+  background: #1b212b;
+}
+
+.popup__notice-text {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+  text-align: center;
 }
 
 .popup__footer {

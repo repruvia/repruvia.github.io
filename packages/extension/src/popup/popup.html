@@ -20,13 +20,27 @@
         <span class="popup__count-label">steps captured</span>
       </div>
 
-      <button id="toggle" class="popup__button popup__button--start" type="button">
-        Start Recording
-      </button>
+      <div id="page-notice" class="popup__notice" hidden>
+        <p id="page-notice-text" class="popup__notice-text"></p>
+        <button
+          id="page-notice-reload"
+          class="popup__button popup__button--ghost"
+          type="button"
+          hidden
+        >
+          Reload Page
+        </button>
+      </div>
 
-      <button id="snip" class="popup__button popup__button--snip" type="button">
-        Snip Screenshot
-      </button>
+      <div id="actions" class="popup__actions">
+        <button id="toggle" class="popup__button popup__button--start" type="button">
+          Start Recording
+        </button>
+
+        <button id="snip" class="popup__button popup__button--snip" type="button">
+          Snip Screenshot
+        </button>
+      </div>
 
       <footer class="popup__footer">
         Captured locally · never uploaded until you submit

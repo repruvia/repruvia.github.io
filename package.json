@@ -20,7 +20,11 @@
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm -r lint",
     "format": "prettier --write \"**/*.{ts,tsx,css,json,md}\"",
-    "assets:icons": "node scripts/generate-icons.mjs"
+    "assets:icons": "node scripts/generate-icons.mjs",
+    "firebase": "npx -y firebase-tools@15.30.2",
+    "emulators": "pnpm build:shared && npx -y firebase-tools@15.30.2 emulators:start",
+    "deploy": "pnpm build && npx -y firebase-tools@15.30.2 deploy",
+    "deploy:hosting": "pnpm build:shared && pnpm build:web && npx -y firebase-tools@15.30.2 deploy --only hosting"
   },
   "devDependencies": {
     "@eslint/js": "^9.18.0",

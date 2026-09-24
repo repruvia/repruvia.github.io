@@ -33,10 +33,10 @@ export function useSnapshotGenerate(): SnapshotGenerate {
     async (image: string, current: SnapshotDraft): Promise<SnapshotDraft> => {
       const settings = loadSettings();
       if (!isVisionProvider(settings)) {
-        throw new Error("Pick a vision-capable AI provider in Settings to generate from an image.");
+        throw new Error("Choose an AI that can read images in Settings to draft from a screenshot.");
       }
       const engine = buildActiveEngine(settings);
-      if (!engine) throw new Error("No AI provider is configured.");
+      if (!engine) throw new Error("No AI is set up yet. Turn one on in Settings.");
 
       setGenerating(true);
       try {
@@ -45,18 +45,15 @@ export function useSnapshotGenerate(): SnapshotGenerate {
         // Shrink the image before inference to keep payloads small/fast.
         const prepared = await downscaleImage(image, 1280);
 
-        const title = (
-          await engine.generate(buildSnapshotFieldMessages("title", prepared, current.title))
-        ).trim();
-        const description = (
-          await engine.generate(
-            buildSnapshotFieldMessages("description", prepared, current.description),
-          )
-        ).trim();
+        // Independent requests — run them together instead of back to back.
+        const [title, description] = await Promise.all([
+          engine.generate(buildSnapshotFieldMessages("title", prepared, current.title)),
+          engine.generate(buildSnapshotFieldMessages("description", prepared, current.description)),
+        ]);
 
         return {
-          title: title || current.title,
-          description: description || current.description,
+          title: title.trim() || current.title,
+          description: description.trim() || current.description,
         };
       } finally {
         setGenerating(false);

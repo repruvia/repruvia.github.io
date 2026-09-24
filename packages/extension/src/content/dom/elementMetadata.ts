@@ -2,7 +2,8 @@ import { LIMITS, type DomEvent, type DomEventType } from "@repruvia/shared";
 
 /** Compute a stable-ish XPath for an element (used for React bridge lookups). */
 export function getXPath(element: Element): string {
-  if (element.id) return `//*[@id="${element.id}"]`;
+  // An id containing a double quote can't be written as an XPath literal here.
+  if (element.id && !element.id.includes('"')) return `//*[@id="${element.id}"]`;
   const segments: string[] = [];
   let node: Element | null = element;
   while (node && node.nodeType === Node.ELEMENT_NODE) {
@@ -25,10 +26,15 @@ function resolveFieldLabel(element: Element): string | null {
     const explicit = document.querySelector(`label[for="${CSS.escape(id)}"]`);
     if (explicit?.textContent) return explicit.textContent.trim();
   }
+  // aria-labelledby is a space-separated id list; the accessible name joins them.
   const labelledBy = element.getAttribute("aria-labelledby");
   if (labelledBy) {
-    const ref = document.getElementById(labelledBy);
-    if (ref?.textContent) return ref.textContent.trim();
+    const text = labelledBy
+      .split(/\s+/)
+      .map((ref) => document.getElementById(ref)?.textContent?.trim())
+      .filter(Boolean)
+      .join(" ");
+    if (text) return text;
   }
   const wrapping = element.closest("label");
   if (wrapping?.textContent) return wrapping.textContent.trim();
@@ -36,10 +42,10 @@ function resolveFieldLabel(element: Element): string | null {
 }
 
 /** First test-id-style attribute, the most reliable element handle for QA. */
-function resolveTestId(element: Element): string | null {
+function resolveTestId(element: Element): { attr: string; value: string } | null {
   for (const attr of ["data-testid", "data-test", "data-cy", "data-qa"]) {
     const value = element.getAttribute(attr);
-    if (value) return value;
+    if (value) return { attr, value };
   }
   return null;
 }
@@ -47,11 +53,16 @@ function resolveTestId(element: Element): string | null {
 /** A short, human-readable CSS selector: tag + id / test-id / first classes. */
 function buildSelector(element: Element): string {
   const tag = element.tagName.toLowerCase();
-  if (element.id) return `${tag}#${element.id}`;
+  if (element.id) return `${tag}#${CSS.escape(element.id)}`;
   const testId = resolveTestId(element);
-  if (testId) return `${tag}[data-testid="${testId}"]`;
+  if (testId) return `${tag}[${testId.attr}="${testId.value.replace(/["\\]/g, "\\$&")}"]`;
   if (typeof element.className === "string" && element.className.trim()) {
-    const classes = element.className.trim().split(/\s+/).slice(0, 2).join(".");
+    const classes = element.className
+      .trim()
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((c) => CSS.escape(c))
+      .join(".");
     return `${tag}.${classes}`;
   }
   return tag;
@@ -64,6 +75,21 @@ function truncate(value: string | null | undefined): string | null {
   return trimmed.length > LIMITS.TEXT_CONTENT_MAX
     ? `${trimmed.slice(0, LIMITS.TEXT_CONTENT_MAX)}…`
     : trimmed;
+}
+
+/** Editable regions whose text is something the user typed (a value, not a label). */
+const USER_TEXT_SELECTOR = 'textarea, [contenteditable=""], [contenteditable="true"], [contenteditable="plaintext-only"]';
+
+/**
+ * Visible text for a step label — but never text the user typed. Typing events
+ * never carry text, and neither does a click on/inside an editable region
+ * (a contenteditable's `textContent` IS its value).
+ */
+function safeTextContent(type: DomEventType, element: Element): string | null {
+  if (type !== "click") return null;
+  if ((element as HTMLElement).isContentEditable || element.closest(USER_TEXT_SELECTOR)) return null;
+  if (element.querySelector(USER_TEXT_SELECTOR)) return null;
+  return truncate(element.textContent);
 }
 
 /**
@@ -80,7 +106,7 @@ export function buildDomEvent(type: DomEventType, element: Element): DomEvent {
     tagName: element.tagName,
     id: element.getAttribute("id"),
     className: typeof element.className === "string" ? element.className || null : null,
-    textContent: truncate(element.textContent),
+    textContent: safeTextContent(type, element),
     ariaLabel: element.getAttribute("aria-label"),
     placeholder: element.getAttribute("placeholder"),
     fieldLabel: resolveFieldLabel(element),
@@ -92,7 +118,7 @@ export function buildDomEvent(type: DomEventType, element: Element): DomEvent {
     name: element.getAttribute("name"),
     title: truncate(element.getAttribute("title")),
     alt: element.getAttribute("alt"),
-    testId: resolveTestId(element),
+    testId: resolveTestId(element)?.value ?? null,
     selector: buildSelector(element),
     checked: isToggle ? Boolean(formControl.checked) : null,
   };

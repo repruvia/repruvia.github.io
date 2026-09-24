@@ -81,6 +81,7 @@ export interface NetworkFailure {
   id: string;
   url: string;
   method: string;
+  /** HTTP status; `0` means the request failed with no response (network/CORS/DNS). */
   status: number;
   timestamp: number;
   nearestStepId: string | null;

@@ -41,14 +41,30 @@ export function assignNearestSteps<T extends ConsoleEntry | NetworkFailure>(
   if (steps.length === 0) return entries.map((e) => ({ ...e, nearestStepId: null }));
   const ordered = [...steps].sort((a, b) => a.timestamp - b.timestamp);
 
-  return entries.map((entry) => {
-    let nearest = ordered[0]!;
-    for (const step of ordered) {
-      if (step.timestamp <= entry.timestamp) nearest = step;
-      else break;
+  return entries.map((entry) => ({
+    ...entry,
+    nearestStepId: ordered[latestAtOrBefore(ordered, entry.timestamp)]!.id,
+  }));
+}
+
+/**
+ * Binary search: index of the last step with `timestamp <= at`, or 0 when the
+ * entry precedes every step (it's attributed to the first action).
+ */
+function latestAtOrBefore(ordered: Step[], at: number): number {
+  let lo = 0;
+  let hi = ordered.length - 1;
+  let found = 0;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (ordered[mid]!.timestamp <= at) {
+      found = mid;
+      lo = mid + 1;
+    } else {
+      hi = mid - 1;
     }
-    return { ...entry, nearestStepId: nearest.id };
-  });
+  }
+  return found;
 }
 
 /** Group already-assigned entries by their `nearestStepId` for per-step display. */

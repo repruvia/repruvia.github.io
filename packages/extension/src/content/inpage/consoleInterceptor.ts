@@ -1,3 +1,4 @@
+import { LIMITS, truncateText } from "@repruvia/shared";
 import { postToContent } from "./post.js";
 
 /**
@@ -11,13 +12,19 @@ export function installConsoleInterceptor(): () => void {
     const fn = console[level].bind(console);
     original[level] = fn;
     console[level] = (...args: unknown[]) => {
-      postToContent({
-        source: "repruvia",
-        kind: "console",
-        level,
-        message: args.map(stringifyArg).join(" "),
-        timestamp: Date.now(),
-      });
+      // This runs inside the page's own call: capturing must never throw into it.
+      try {
+        postToContent({
+          source: "repruvia",
+          kind: "console",
+          level,
+          // Cap here too so a huge object dump isn't serialized across every hop.
+          message: truncateText(args.map(stringifyArg).join(" "), LIMITS.CONSOLE_MESSAGE_MAX),
+          timestamp: Date.now(),
+        });
+      } catch {
+        // unserializable argument — skip capture, keep the page's log
+      }
       fn(...args);
     };
   });
@@ -30,7 +37,9 @@ export function installConsoleInterceptor(): () => void {
 
 function stringifyArg(arg: unknown): string {
   if (arg instanceof Error) return `${arg.name}: ${arg.message}`;
-  if (typeof arg === "object") {
+  // DOM nodes JSON-stringify to "{}" — describe them instead.
+  if (arg instanceof Element) return `<${arg.tagName.toLowerCase()}>`;
+  if (typeof arg === "object" && arg !== null) {
     try {
       return JSON.stringify(arg);
     } catch {
