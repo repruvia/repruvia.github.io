@@ -24,7 +24,7 @@
 ## Configuration
 
 The web app **auto-discovers the extension ID** — the extension announces itself
-to the `localhost:3000` / `repruvia.app` origins, so no `VITE_EXTENSION_ID` is
+to the `localhost:3000` / `repruvia.github.io` origins, so no `VITE_EXTENSION_ID` is
 needed. After (re)loading the unpacked extension, just refresh the web app tab.
 
 > If you see "Repruvia extension not reachable", reload the extension at
