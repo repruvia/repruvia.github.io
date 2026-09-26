@@ -18,7 +18,20 @@ Repruvia is an open-source **Chrome extension + web app** that helps you file be
 
 Either way, you add a title and description (or let AI draft them from the image), then send the result straight to **Linear** or **Jira**, or export it as Markdown.
 
-Everything runs in your browser. No server, no storage costs, no telemetry — your data only leaves the browser when you submit a ticket. AI drafting is optional and uses your own provider API key.
+Everything runs in your browser. No server, no telemetry — your recordings and screenshots only leave the browser when you submit a ticket. AI drafting is optional and uses your own provider API key. Signing in with Google is optional too.
+
+## Get Repruvia
+
+- **Web app:** [repruvia.github.io](https://repruvia.github.io) (hosted on GitHub Pages).
+- **Extension:** download the latest `repruvia-extension-*.zip` from [Releases](https://github.com/repruvia/repruvia.github.io/releases), unzip it, then `chrome://extensions` → **Developer Mode** → **Load unpacked** → select the unzipped folder. After a recording or snip, the extension opens the report in the web app.
+
+## Settings
+
+The web app's **Settings** page has three sections (deep-linkable via `/settings?section=account|integrations|ai`):
+
+- **Account** — sign in with Google to report as your account (your Google name and email appear as the reporter), sync preferences across devices, and see your ticket history. Not signed in? Enter the reporter name and email to use here instead.
+- **Integrations** — Linear API key; Jira site, email, and API token.
+- **AI** — choose a provider and model and add your own API key.
 
 ## Why Repruvia?
 
@@ -53,7 +66,9 @@ pnpm dev:extension         # extension build watcher → packages/extension/dist
 
 Load the extension: `chrome://extensions` → **Developer Mode** → **Load unpacked** → `packages/extension/dist/`.
 
-Firebase (optional): `pnpm firebase login`, then `pnpm emulators` for a local backend (with `VITE_FIREBASE_EMULATORS=true`), or `pnpm deploy` to ship Hosting + Functions + SQL Connect.
+Firebase (optional, free Spark plan — Auth + Cloud Firestore only; Firebase Hosting is not used): `pnpm firebase login`, then `pnpm emulators` for a local backend (with `VITE_FIREBASE_EMULATORS=true`), or `pnpm deploy:rules` to ship the Firestore security rules. Google sign-in only works on domains listed under Firebase Console → Authentication → Settings → **Authorized domains** (`localhost` and `repruvia.github.io`).
+
+Deploying: the web app ships to GitHub Pages via `.github/workflows/deploy-pages.yml`. To package the extension, bump `version` in `packages/extension/package.json`, run `pnpm build`, and zip the contents of `packages/extension/dist/` (pushing a `vX.Y.Z` tag does this in CI and attaches the zip to a GitHub release).
 
 ## Architecture Highlights
 
@@ -62,8 +77,9 @@ Firebase (optional): `pnpm firebase login`, then `pnpm emulators` for a local ba
 - **Atomic design** — `components/ui` (shadcn primitives) → `atoms` → `molecules` → `organisms` → `pages`.
 - **Robust MV3 capture** — DOM events are captured by content scripts in two execution worlds; screenshots are serialized and throttled to respect Chrome's `captureVisibleTab` rate limit so no step loses its image. The snip tool captures a drag-selected region and crops it via `OffscreenCanvas` in the service worker.
 - **Screenshot annotator** — the snip editor (Konva) supports pen, arrow, box, and text, each selectable, movable, resizable, and rotatable, with undo/redo and auto-save; the flattened image can be copied, downloaded, or attached to a ticket.
-- **AI drafting** — draft a title, description, and per-step text, or generate a title + description from an annotated screenshot. Works out of the box with **Repruvia AI** (Gemini via Firebase AI Logic, no key needed), or bring your own key for OpenAI, Anthropic, Gemini, xAI Grok, or Groq. Nothing is sent until you click. Behind an `LlmEngine` interface, lazy-loaded so it costs nothing until used.
-- **Optional Firebase account** — sign in with Google to sync your profile/preferences across devices, keep a ticket history (Firebase SQL Connect), and route Linear/Jira calls through a Cloud Function (avoids Jira's browser CORS block). Hosted on Firebase Hosting at [repruvia.web.app](https://repruvia.web.app).
+- **AI drafting** — draft a title, description, and per-step text, or generate a title + description from an annotated screenshot. Bring your own key for OpenAI, Anthropic, Gemini, xAI Grok, or Groq — calls go straight from your browser to that provider. Nothing is sent until you click. Behind an `LlmEngine` interface, lazy-loaded so it costs nothing until used.
+- **Optional Firebase account** — sign in with Google to report as your account, sync preferences across devices, and keep a ticket history (Cloud Firestore). No server code: Firebase Auth + Firestore on the free Spark plan.
+- **CORS-free integrations** — Linear/Jira calls route through the extension's service worker, which avoids Jira Cloud's browser CORS block without a backend.
 
 ## Tech Stack
 
@@ -71,7 +87,7 @@ React 19 · Vite 6 · Tailwind CSS v4 · shadcn/ui · Zustand · React Router v7
 
 ## Privacy
 
-Input **values are never captured** — only field labels/placeholders. Recordings and snapshots live in your browser's IndexedDB and are sent nowhere until you explicitly submit a ticket. AI sends the relevant text/image — to Google via Firebase (Repruvia AI) or to your own provider — only when you click an AI action. Signing in is optional; if you do, only your display name/email, Jira site/email, AI provider/model choices, and links to tickets you created are stored in your account. API keys, tokens, recordings, and screenshots are never uploaded (tokens pass through the ticket proxy per request and aren't stored). No analytics or telemetry. See [`packages/extension`](./packages/extension) and the [TRD](./Repruvia-TRD.md) §12.
+Input **values are never captured** — only field labels/placeholders. Recordings and snapshots live in your browser's IndexedDB and are sent nowhere until you explicitly submit a ticket. AI sends the relevant text/image to the provider you chose — only when you click an AI action. Signing in is optional; if you do, only your display name/email, Jira site/email, AI provider/model choices, and links to tickets you created are stored in your account. API keys, tokens, recordings, and screenshots are never uploaded to it (tokens are sent only to Linear/Jira/your AI provider, per request). No analytics or telemetry. See [`packages/extension`](./packages/extension) and the [TRD](./Repruvia-TRD.md) §12.
 
 📄 **[Privacy Policy](https://ash-larch-a05.notion.site/Repruvia-Privacy-Policy-381a0161464a80168f99c885addf346e)**
 

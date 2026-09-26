@@ -57,7 +57,8 @@ function Field({
   );
 }
 
-export function ProfileSection({ settings, update }: SectionProps) {
+/** Reporter name/email for signed-out users (signed in, the account supplies them). */
+export function ReporterFields({ settings, update }: SectionProps) {
   return (
     <div className="flex flex-col gap-5">
       <Field id="reporter-name" label="Display name">

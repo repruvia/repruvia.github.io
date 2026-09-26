@@ -2,7 +2,12 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { toast } from "sonner";
 import { toFriendlyMessage } from "@repruvia/shared";
 import { onUserChanged, signInWithGoogle, signOut as firebaseSignOut, type User } from "@/lib/firebase/auth";
-import { applySyncedSettings, pullSettings, pushSettings } from "@/lib/cloud/settingsSync";
+import {
+  applySyncedSettings,
+  pullSettings,
+  pushSettings,
+  withAccountIdentity,
+} from "@/lib/cloud/settingsSync";
 import { loadSettings, saveSettings, subscribeSettings } from "@/lib/settings";
 
 export type AuthStatus = "loading" | "signedIn" | "signedOut";
@@ -36,8 +41,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const uid = user?.uid ?? null;
+  const accountName = user?.displayName ?? null;
+  const accountEmail = user?.email ?? null;
 
-  // Pull (or seed) the account's settings once per signed-in user.
+  // Pull (or seed) the account's settings once per signed-in user; the account's
+  // name and email become the reporter identity.
   useEffect(() => {
     if (!uid) return;
     let cancelled = false;
@@ -45,8 +53,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const synced = await pullSettings();
         if (cancelled) return;
-        if (synced) saveSettings(applySyncedSettings(loadSettings(), synced), "cloud");
-        else await pushSettings(loadSettings());
+        const base = synced ? applySyncedSettings(loadSettings(), synced) : loadSettings();
+        const next = withAccountIdentity(base, accountName, accountEmail);
+        saveSettings(next, "cloud");
+        if (
+          !synced ||
+          synced.reporterName !== next.reporterName ||
+          synced.reporterEmail !== next.reporterEmail
+        ) {
+          await pushSettings(next);
+        }
       } catch (error) {
         console.warn("[repruvia] Settings sync failed:", error);
       }
@@ -54,7 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [uid]);
+  }, [uid, accountName, accountEmail]);
 
   // Push local saves while signed in.
   useEffect(() => {
