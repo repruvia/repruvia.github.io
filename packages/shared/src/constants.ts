@@ -40,11 +40,8 @@ export const SNAPSHOT_QUERY_PARAM = "snapshot";
 /** Origins the extension will respond to over `onMessageExternal` (TRD §6, §12). */
 export const ALLOWED_WEB_APP_ORIGINS = [
   "http://localhost:3000",
-  // Firebase Hosting (primary production site) + its alternate domain.
-  "https://repruvia.web.app",
-  "https://repruvia.firebaseapp.com",
   "https://repruvia.app",
-  // GitHub Pages deploy — set to your actual Pages origin if different.
+  // Production web app (GitHub Pages).
   "https://repruvia.github.io",
 ] as const;
 

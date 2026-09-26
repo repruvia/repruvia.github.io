@@ -23,8 +23,7 @@
     "assets:icons": "node scripts/generate-icons.mjs",
     "firebase": "npx -y firebase-tools@15.30.2",
     "emulators": "pnpm build:shared && npx -y firebase-tools@15.30.2 emulators:start",
-    "deploy": "pnpm build && npx -y firebase-tools@15.30.2 deploy",
-    "deploy:hosting": "pnpm build:shared && pnpm build:web && npx -y firebase-tools@15.30.2 deploy --only hosting"
+    "deploy:rules": "npx -y firebase-tools@15.30.2 deploy --only firestore:rules"
   },
   "devDependencies": {
     "@eslint/js": "^9.18.0",

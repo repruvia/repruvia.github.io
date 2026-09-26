@@ -53,7 +53,7 @@ pnpm dev:extension         # extension build watcher → packages/extension/dist
 
 Load the extension: `chrome://extensions` → **Developer Mode** → **Load unpacked** → `packages/extension/dist/`.
 
-Firebase (optional): `pnpm firebase login`, then `pnpm emulators` for a local backend (with `VITE_FIREBASE_EMULATORS=true`), or `pnpm deploy` to ship Hosting + Functions + SQL Connect.
+Firebase (optional): `pnpm firebase login`, then `pnpm emulators` for a local backend (with `VITE_FIREBASE_EMULATORS=true`), or `pnpm deploy:rules` to ship the Firestore security rules. The web app itself is deployed to GitHub Pages.
 
 ## Architecture Highlights
 
@@ -63,7 +63,7 @@ Firebase (optional): `pnpm firebase login`, then `pnpm emulators` for a local ba
 - **Robust MV3 capture** — DOM events are captured by content scripts in two execution worlds; screenshots are serialized and throttled to respect Chrome's `captureVisibleTab` rate limit so no step loses its image. The snip tool captures a drag-selected region and crops it via `OffscreenCanvas` in the service worker.
 - **Screenshot annotator** — the snip editor (Konva) supports pen, arrow, box, and text, each selectable, movable, resizable, and rotatable, with undo/redo and auto-save; the flattened image can be copied, downloaded, or attached to a ticket.
 - **AI drafting** — draft a title, description, and per-step text, or generate a title + description from an annotated screenshot. Works out of the box with **Repruvia AI** (Gemini via Firebase AI Logic, no key needed), or bring your own key for OpenAI, Anthropic, Gemini, xAI Grok, or Groq. Nothing is sent until you click. Behind an `LlmEngine` interface, lazy-loaded so it costs nothing until used.
-- **Optional Firebase account** — sign in with Google to sync your profile/preferences across devices, keep a ticket history (Firebase SQL Connect), and route Linear/Jira calls through a Cloud Function (avoids Jira's browser CORS block). Hosted on Firebase Hosting at [repruvia.web.app](https://repruvia.web.app).
+- **Optional Firebase account** — sign in with Google to sync your profile/preferences across devices, and keep a ticket history (Cloud Firestore). Linear/Jira calls route through the extension, which avoids Jira's browser CORS block. The web app is hosted on GitHub Pages at [repruvia.github.io](https://repruvia.github.io).
 
 ## Tech Stack
 

@@ -15,8 +15,6 @@ import pkg from "./package.json" with { type: "json" };
  */
 const WEB_APP_MATCHES = [
   "http://localhost:3000/*",
-  "https://repruvia.web.app/*",
-  "https://repruvia.firebaseapp.com/*",
   "https://repruvia.github.io/*",
 ];
 
