@@ -335,7 +335,7 @@ export function AnnotationPage() {
         {!aiAvailable && (
           <p className="text-xs text-muted-foreground">
             Choose an AI that can read images in{" "}
-            <Link to="/settings" className="text-primary underline-offset-2 hover:underline">
+            <Link to="/settings?section=ai" className="text-primary underline-offset-2 hover:underline">
               Settings
             </Link>{" "}
             to draft a title and description from your screenshot.

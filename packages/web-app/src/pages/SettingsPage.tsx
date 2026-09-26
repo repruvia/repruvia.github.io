@@ -1,6 +1,5 @@
-import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Blocks, CircleUserRound, Sparkles, User, type LucideIcon } from "lucide-react";
+import { Blocks, CircleUserRound, Sparkles, type LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,7 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import {
   AiSection,
   IntegrationsSection,
-  ProfileSection,
+  ReporterFields,
 } from "@/components/organisms/SettingsSections";
 import { AccountSection } from "@/components/organisms/AccountSection";
 import { PageContainer } from "@/components/atoms/PageContainer";
@@ -23,28 +22,26 @@ import { useAuth } from "@/hooks/auth";
 import { useTicketHistory } from "@/hooks/useTicketHistory";
 import { cn } from "@/lib/utils";
 
-type SectionId = "account" | "profile" | "integrations" | "ai";
+type SectionId = "account" | "integrations" | "ai";
 
 const SECTIONS: { id: SectionId; label: string; description: string; icon: LucideIcon }[] = [
   {
     id: "account",
     label: "Account",
-    description: "Sign in, syncing, and your ticket history",
+    description: "Who you report as, syncing, and your ticket history",
     icon: CircleUserRound,
   },
-  { id: "profile", label: "Profile", description: "The name shown on your reports", icon: User },
   { id: "integrations", label: "Integrations", description: "Connect Linear and Jira", icon: Blocks },
   { id: "ai", label: "AI", description: "Choose the AI that drafts your reports", icon: Sparkles },
 ];
 
 export function SettingsPage() {
   const { settings, update, persist } = useSettings();
-  const [params] = useSearchParams();
-  const [active, setActive] = useState<SectionId>(() =>
-    SECTIONS.some((s) => s.id === params.get("section"))
-      ? (params.get("section") as SectionId)
-      : "profile",
-  );
+  // The active section lives in the URL (`?section=`) so links can deep-link to it.
+  const [params, setParams] = useSearchParams();
+  const current = SECTIONS.find((s) => s.id === params.get("section")) ?? SECTIONS[0]!;
+  const shown = current.id;
+  const setActive = (id: SectionId) => setParams({ section: id }, { replace: true });
   const { status, user, signIn, signOut } = useAuth();
   const history = useTicketHistory(user?.uid ?? null);
 
@@ -53,7 +50,8 @@ export function SettingsPage() {
     toast.success("Settings saved");
   };
 
-  const current = SECTIONS.find((s) => s.id === active)!;
+  // Signed out, Account holds the editable reporter name/email, which need saving.
+  const showSave = shown !== "account" || status === "signedOut";
 
   return (
     <PageContainer className="flex flex-col gap-6 py-8">
@@ -69,7 +67,7 @@ export function SettingsPage() {
         <nav className="flex shrink-0 gap-1 overflow-x-auto md:w-56 md:flex-col md:overflow-visible">
           {SECTIONS.map((section) => {
             const Icon = section.icon;
-            const selected = section.id === active;
+            const selected = section.id === shown;
             return (
               <button
                 key={section.id}
@@ -95,7 +93,7 @@ export function SettingsPage() {
             </CardHeader>
             <Separator />
             <CardContent>
-              {active === "account" && (
+              {shown === "account" && (
                 <AccountSection
                   status={status}
                   displayName={user?.displayName ?? null}
@@ -106,17 +104,17 @@ export function SettingsPage() {
                   onSignIn={() => void signIn()}
                   onSignOut={() => void signOut()}
                   onRefresh={() => void history.refresh()}
+                  reporterFields={<ReporterFields settings={settings} update={update} />}
                 />
               )}
-              {active === "profile" && <ProfileSection settings={settings} update={update} />}
-              {active === "integrations" && (
+              {shown === "integrations" && (
                 <IntegrationsSection settings={settings} update={update} />
               )}
-              {active === "ai" && <AiSection settings={settings} update={update} />}
+              {shown === "ai" && <AiSection settings={settings} update={update} />}
             </CardContent>
           </Card>
 
-          {active !== "account" && (
+          {showSave && (
             <div className="mt-4 flex justify-end">
               <Button onClick={save}>Save settings</Button>
             </div>

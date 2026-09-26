@@ -1,6 +1,8 @@
+import type { ReactNode } from "react";
 import { ExternalLink, Loader2, LogIn, LogOut, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import { JiraIcon, LinearIcon } from "@/components/atoms/BrandIcons";
 import type { CloudTicket } from "@/lib/cloud/ticketSync";
 import type { TicketHistoryStatus } from "@/hooks/useTicketHistory";
@@ -15,6 +17,8 @@ interface AccountSectionProps {
   onSignIn: () => void;
   onSignOut: () => void;
   onRefresh: () => void;
+  /** Editable reporter name/email, shown only while signed out. */
+  reporterFields: ReactNode;
 }
 
 /** Sign-in state, what syncs, and the account's ticket history. */
@@ -28,6 +32,7 @@ export function AccountSection({
   onSignIn,
   onSignOut,
   onRefresh,
+  reporterFields,
 }: AccountSectionProps) {
   if (status === "loading") {
     return <Loader2 className="size-4 animate-spin text-muted-foreground" />;
@@ -35,14 +40,22 @@ export function AccountSection({
 
   if (status === "signedOut") {
     return (
-      <div className="flex flex-col items-start gap-4">
-        <p className="text-sm text-muted-foreground">
-          Sign in to sync your profile and preferences across devices and keep a history of the
-          tickets you raise. Your recordings, screenshots, and API keys always stay on this device.
-        </p>
-        <Button onClick={onSignIn}>
-          <LogIn /> Sign in with Google
-        </Button>
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-col items-start gap-4">
+          <p className="text-sm text-muted-foreground">
+            Sign in to report as your Google account, sync your preferences across devices, and
+            keep a history of the tickets you raise. Your recordings, screenshots, and API keys
+            always stay on this device.
+          </p>
+          <Button onClick={onSignIn}>
+            <LogIn /> Sign in with Google
+          </Button>
+        </div>
+        <Separator />
+        <div className="flex flex-col gap-3">
+          <h3 className="text-sm font-semibold">Or report without an account</h3>
+          {reporterFields}
+        </div>
       </div>
     );
   }
@@ -60,8 +73,9 @@ export function AccountSection({
       </div>
 
       <p className="rounded-md border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
-        Your name, email, Jira site, and AI choices sync to your account. Your API keys, Linear
-        and Jira tokens, recordings, and screenshots never leave this device.
+        Your reports are signed with this name and email. Your Jira site and AI choices sync to
+        your account. Your API keys, Linear and Jira tokens, recordings, and screenshots never
+        leave this device.
       </p>
 
       <div className="flex flex-col gap-3">

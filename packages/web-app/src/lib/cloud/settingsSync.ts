@@ -46,6 +46,22 @@ export function applySyncedSettings(local: AppSettings, synced: SyncedSettings):
   };
 }
 
+/**
+ * A signed-in user reports as their account: its name and email replace the
+ * hand-entered reporter fields (kept as-is when the account lacks one).
+ */
+export function withAccountIdentity(
+  settings: AppSettings,
+  name: string | null,
+  email: string | null,
+): AppSettings {
+  return {
+    ...settings,
+    reporterName: name?.trim() || settings.reporterName,
+    reporterEmail: email?.trim() || settings.reporterEmail,
+  };
+}
+
 /** Keep only model choices for providers this build still supports. */
 function toAiModels(value: unknown): SyncedSettings["aiModels"] {
   const stored = toStringRecord(value);
